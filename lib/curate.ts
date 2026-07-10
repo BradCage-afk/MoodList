@@ -173,7 +173,9 @@ export async function curate(
   const byId = new Map<string, SpotifyTrack>();
   for (const track of searchResults.flat()) {
     if (JUNK_TITLE.test(track.name)) continue;
-    if (!byId.has(track.id)) byId.set(track.id, track);
+    const prev = byId.get(track.id);
+    // Keep the best rank-derived popularity seen across queries
+    if (!prev || track.popularity > prev.popularity) byId.set(track.id, track);
   }
   const pool = [...byId.values()]
     .sort((a, b) => b.popularity - a.popularity)

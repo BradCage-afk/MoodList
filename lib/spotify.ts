@@ -68,13 +68,16 @@ export async function searchTracks(
   const items: SpotifyApiTrack[] = data.tracks?.items ?? [];
   return items
     .filter((t) => t?.id)
-    .map((t) => ({
+    .map((t, i) => ({
       id: t.id,
       uri: t.uri,
       name: t.name,
       artists: t.artists.map((a) => a.name),
       albumArt: t.album?.images?.[0]?.url ?? null,
-      popularity: t.popularity ?? 0,
+      // Search results stopped including popularity (2026 API changes), so
+      // derive a 0-100 proxy from Spotify's own relevance ranking: earlier
+      // in the results = more relevant/popular.
+      popularity: t.popularity ?? Math.max(0, 100 - (offset + i) * 2),
     }));
 }
 
