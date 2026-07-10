@@ -72,11 +72,15 @@ export async function fetchLyricsText(
   url: string,
   signal?: AbortSignal
 ): Promise<string | null> {
+  // Header set matters: Genius's bot protection 403s bare/Chrome-UA server
+  // fetches but accepts this Firefox-style profile (verified live).
   const res = await fetch(url, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-      Accept: "text/html",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.5",
+      Referer: "https://www.google.com/",
     },
     signal,
   });
@@ -102,4 +106,44 @@ export async function fetchLyricsText(
     .trim();
 
   return text.length > 40 ? text : null;
+}
+
+/** Fallback source: lrclib.net (free, keyless). Used when Genius has no match or blocks the fetch. */
+async function fetchLyricsFromLrclib(
+  title: string,
+  artist: string,
+  signal?: AbortSignal
+): Promise<string | null> {
+  const q = new URLSearchParams({ artist_name: artist, track_name: title });
+  const res = await fetch(`https://lrclib.net/api/get?${q}`, { signal });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const text: string | undefined = data.plainLyrics ?? data.syncedLyrics;
+  return text && text.length > 40 ? text : null;
+}
+
+/**
+ * Get lyrics text for internal scoring only: Genius first (API search →
+ * lyrics page extraction), lrclib.net as fallback. Returns null when neither
+ * source has the track — callers score neutrally.
+ */
+export async function getLyricsForScoring(
+  title: string,
+  artist: string,
+  signal?: AbortSignal
+): Promise<string | null> {
+  try {
+    const url = await findLyricsUrl(title, artist, signal);
+    if (url) {
+      const text = await fetchLyricsText(url, signal);
+      if (text) return text;
+    }
+  } catch {
+    // fall through to lrclib
+  }
+  try {
+    return await fetchLyricsFromLrclib(title, artist, signal);
+  } catch {
+    return null;
+  }
 }

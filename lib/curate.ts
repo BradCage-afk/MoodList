@@ -7,7 +7,7 @@ import {
   type EmotionVector,
 } from "@/lib/nrc";
 import { searchTracks, type SpotifyTrack } from "@/lib/spotify";
-import { fetchLyricsText, findLyricsUrl } from "@/lib/genius";
+import { getLyricsForScoring } from "@/lib/genius";
 
 export interface CurateInput {
   text: string;
@@ -155,15 +155,12 @@ export async function curate(
     let scoredFromLyrics = false;
     try {
       const signal = AbortSignal.timeout(LYRICS_TIMEOUT_MS);
-      const url = await findLyricsUrl(track.name, track.artists[0] ?? "", signal);
-      if (url) {
-        const lyrics = await fetchLyricsText(url, signal);
-        if (lyrics) {
-          const { vector, hits } = scoreText(lyrics);
-          if (hits >= 5) {
-            score = cosineSimilarity(vector, target);
-            scoredFromLyrics = true;
-          }
+      const lyrics = await getLyricsForScoring(track.name, track.artists[0] ?? "", signal);
+      if (lyrics) {
+        const { vector, hits } = scoreText(lyrics);
+        if (hits >= 5) {
+          score = cosineSimilarity(vector, target);
+          scoredFromLyrics = true;
         }
       }
     } catch {
