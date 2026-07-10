@@ -47,9 +47,21 @@ async function spotifyFetch(
   return res;
 }
 
-/** Spotify search now caps limit at 10 per request — callers issue many small queries. */
-export async function searchTracks(accessToken: string, query: string): Promise<SpotifyTrack[]> {
-  const params = new URLSearchParams({ q: query, type: "track", limit: "10" });
+/**
+ * Spotify search caps limit at 10 per request, but offset pagination still
+ * works — callers fan out many small (query, offset) requests in parallel.
+ */
+export async function searchTracks(
+  accessToken: string,
+  query: string,
+  offset = 0
+): Promise<SpotifyTrack[]> {
+  const params = new URLSearchParams({
+    q: query,
+    type: "track",
+    limit: "10",
+    offset: String(offset),
+  });
   const res = await spotifyFetch(accessToken, `/search?${params}`);
   if (!res.ok) return [];
   const data = await res.json();

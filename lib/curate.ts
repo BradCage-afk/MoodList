@@ -33,11 +33,15 @@ export type ProgressEvent =
   | { stage: "done"; tracks: CuratedTrack[]; summary: string }
   | { stage: "error"; message: string };
 
-const POOL_CAP = 70;
+const POOL_CAP = 100;
 const RESULT_SIZE = 24;
 const MAX_PER_ARTIST = 2;
-const LYRICS_CONCURRENCY = 10;
+const MAX_SEARCH_REQUESTS = 26; // parallel (query, offset) fetches per curation
+const LYRICS_CONCURRENCY = 12;
 const LYRICS_TIMEOUT_MS = 8000;
+// Compilation/DJ-mix junk that plain-text search surfaces ("Bollywood
+// Nonstop Dandiya Mashup") — never useful as a single mood-matched song.
+const JUNK_TITLE = /nonstop|non stop|mashup|medley|megamix|jukebox|mixtape|dj mix/i;
 // Score for tracks whose lyrics couldn't be fetched — kept mid-low so they
 // can fill out a thin pool but never outrank a real lyrical match.
 const NEUTRAL_SCORE = 0.3;
@@ -64,8 +68,17 @@ export function buildTargetVector(input: CurateInput): EmotionVector {
   return blendVectors(entries);
 }
 
-/** Build a set of small search queries from tags + free text (limit=10 each). */
-export function buildSearchQueries(input: CurateInput): string[] {
+interface SearchPage {
+  q: string;
+  offset: number;
+}
+
+/**
+ * Build a fan-out of (query, offset) search pages from tags + free text.
+ * limit is capped at 10 per request, so breadth comes from many parallel
+ * pages: query variants × offset pagination.
+ */
+export function buildSearchPlan(input: CurateInput): SearchPage[] {
   const tags = input.tagIds
     .map((id) => TAGS_BY_ID.get(id))
     .filter((t): t is Tag => !!t);
@@ -74,27 +87,50 @@ export function buildSearchQueries(input: CurateInput): string[] {
   const genreSeeds = tags.filter((t) => t.axis === "genre").flatMap((t) => t.searchSeeds);
   const text = input.text.trim();
 
-  const queries = new Set<string>();
+  const plans: { q: string; pages: number }[] = [];
+  const seen = new Set<string>();
+  const add = (q: string, pages: number) => {
+    const key = q.toLowerCase();
+    if (q.length > 1 && !seen.has(key)) {
+      seen.add(key);
+      plans.push({ q, pages });
+    }
+  };
 
-  // Free text is used literally, alone and with each genre
   if (text) {
-    queries.add(text);
-    for (const g of genreSeeds.slice(0, 3)) queries.add(`${text} ${g}`);
+    // The literal text, paginated deep — the main signal
+    add(text, 4);
+    // If the text is an artist name this returns their real catalog;
+    // harmlessly empty otherwise
+    add(`artist:"${text}"`, 3);
+    for (const g of genreSeeds.slice(0, 3)) add(`${text} ${g}`, 2);
+    if (moodSeeds.length > 0) {
+      for (const m of moodSeeds.slice(0, 4)) add(`${text} ${m}`, 1);
+    } else {
+      // No mood tags to cross with — expand generically for breadth
+      for (const s of ["hits", "top songs", "best songs"]) add(`${text} ${s}`, 1);
+    }
   }
   // Mood seed × genre seed pairs, then bare mood seeds
   for (const m of moodSeeds) {
     if (genreSeeds.length > 0) {
-      for (const g of genreSeeds.slice(0, 2)) queries.add(`${m} ${g}`);
+      for (const g of genreSeeds.slice(0, 2)) add(`${m} ${g}`, 1);
     } else {
-      queries.add(m);
+      add(m, 2);
     }
   }
   // Bare genre seeds as filler
-  for (const g of genreSeeds) queries.add(g);
+  for (const g of genreSeeds) add(g, 2);
 
-  const list = [...queries].filter((q) => q.length > 1);
-  // 8-10 parallel searches ≈ up to 80-100 raw results before dedupe
-  return list.slice(0, 10);
+  const pages: SearchPage[] = [];
+  for (const { q, pages: n } of plans) {
+    for (let i = 0; i < n; i++) pages.push({ q, offset: i * 10 });
+  }
+  return pages.slice(0, MAX_SEARCH_REQUESTS);
+}
+
+function normalizeName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 async function mapWithConcurrency<T, R>(
@@ -121,20 +157,22 @@ export async function curate(
   emit: (e: ProgressEvent) => void
 ): Promise<void> {
   const target = buildTargetVector(input);
-  const queries = buildSearchQueries(input);
-  if (queries.length === 0) {
+  const pages = buildSearchPlan(input);
+  if (pages.length === 0) {
     emit({ stage: "error", message: "Pick at least one tag or type something." });
     return;
   }
 
-  emit({ stage: "searching", queries: queries.length });
+  emit({ stage: "searching", queries: pages.length });
   const searchResults = await Promise.all(
-    queries.map((q) => searchTracks(accessToken, q).catch(() => []))
+    pages.map(({ q, offset }) => searchTracks(accessToken, q, offset).catch(() => []))
   );
 
-  // Dedupe by track id, prefer mainstream (popularity) when trimming the pool
+  // Dedupe by track id, drop compilation junk, prefer mainstream (popularity)
+  // when trimming the pool
   const byId = new Map<string, SpotifyTrack>();
   for (const track of searchResults.flat()) {
+    if (JUNK_TITLE.test(track.name)) continue;
     if (!byId.has(track.id)) byId.set(track.id, track);
   }
   const pool = [...byId.values()]
@@ -180,12 +218,19 @@ export async function curate(
     .map((s) => ({ ...s, final: 0.85 * s.score + 0.15 * (s.track.popularity / 100) }))
     .sort((a, b) => b.final - a.final);
 
+  // If the free text IS an artist's name, the user wants that artist's
+  // catalog — lift the diversity cap for them
+  const requestedArtist = normalizeName(input.text);
   const perArtist = new Map<string, number>();
   const picked: CuratedTrack[] = [];
   for (const { track, final, scoredFromLyrics } of ranked) {
     const artistKey = (track.artists[0] ?? "").toLowerCase();
+    const isRequested =
+      requestedArtist.length > 0 &&
+      track.artists.some((a) => normalizeName(a) === requestedArtist);
+    const cap = isRequested ? RESULT_SIZE : MAX_PER_ARTIST;
     const count = perArtist.get(artistKey) ?? 0;
-    if (count >= MAX_PER_ARTIST) continue;
+    if (count >= cap) continue;
     perArtist.set(artistKey, count + 1);
     picked.push({
       id: track.id,
