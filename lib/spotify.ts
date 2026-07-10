@@ -89,7 +89,8 @@ export async function addTracksToPlaylist(
   uris: string[]
 ): Promise<void> {
   for (let i = 0; i < uris.length; i += 100) {
-    const res = await spotifyFetch(accessToken, `/playlists/${playlistId}/tracks`, {
+    // Feb 2026 API change: the endpoint is /items now; /tracks returns 403
+    const res = await spotifyFetch(accessToken, `/playlists/${playlistId}/items`, {
       method: "POST",
       body: JSON.stringify({ uris: uris.slice(i, i + 100) }),
     });
