@@ -26,6 +26,7 @@ export async function POST(req: Request) {
   const input: CurateInput = {
     text: typeof body.text === "string" ? body.text.slice(0, 300) : "",
     tagIds: Array.isArray(body.tagIds) ? body.tagIds.filter((t) => typeof t === "string") : [],
+    size: typeof body.size === "number" && Number.isFinite(body.size) ? body.size : undefined,
   };
 
   const encoder = new TextEncoder();

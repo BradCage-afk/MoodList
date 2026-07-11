@@ -12,7 +12,13 @@ import { getLyricsForScoring } from "@/lib/genius";
 export interface CurateInput {
   text: string;
   tagIds: string[];
+  /** Requested playlist length; clamped to [MIN_SIZE, MAX_SIZE]. */
+  size?: number;
 }
+
+export const MIN_SIZE = 5;
+export const MAX_SIZE = 50;
+export const DEFAULT_SIZE = 24;
 
 export interface CuratedTrack {
   id: string;
@@ -34,7 +40,6 @@ export type ProgressEvent =
   | { stage: "error"; message: string };
 
 const POOL_CAP = 100;
-const RESULT_SIZE = 24;
 const MAX_PER_ARTIST = 2;
 const MAX_SEARCH_REQUESTS = 26; // parallel (query, offset) fetches per curation
 const LYRICS_CONCURRENCY = 12;
@@ -157,6 +162,10 @@ export async function curate(
   emit: (e: ProgressEvent) => void
 ): Promise<void> {
   const target = buildTargetVector(input);
+  const resultSize = Math.min(
+    MAX_SIZE,
+    Math.max(MIN_SIZE, Math.round(input.size ?? DEFAULT_SIZE))
+  );
   const pages = buildSearchPlan(input);
   if (pages.length === 0) {
     emit({ stage: "error", message: "Pick at least one tag or type something." });
@@ -221,8 +230,10 @@ export async function curate(
     .sort((a, b) => b.final - a.final);
 
   // If the free text IS an artist's name, the user wants that artist's
-  // catalog — lift the diversity cap for them
+  // catalog — lift the diversity cap for them. For longer playlists the
+  // base cap scales up so the pool can actually fill the request.
   const requestedArtist = normalizeName(input.text);
+  const baseCap = Math.max(MAX_PER_ARTIST, Math.ceil(resultSize / 12));
   const perArtist = new Map<string, number>();
   const picked: CuratedTrack[] = [];
   for (const { track, final, scoredFromLyrics } of ranked) {
@@ -230,7 +241,7 @@ export async function curate(
     const isRequested =
       requestedArtist.length > 0 &&
       track.artists.some((a) => normalizeName(a) === requestedArtist);
-    const cap = isRequested ? RESULT_SIZE : MAX_PER_ARTIST;
+    const cap = isRequested ? resultSize : baseCap;
     const count = perArtist.get(artistKey) ?? 0;
     if (count >= cap) continue;
     perArtist.set(artistKey, count + 1);
@@ -243,7 +254,7 @@ export async function curate(
       score: Math.round(final * 100) / 100,
       scoredFromLyrics,
     });
-    if (picked.length >= RESULT_SIZE) break;
+    if (picked.length >= resultSize) break;
   }
 
   emit({ stage: "done", tracks: picked, summary: summarize(input) });

@@ -18,6 +18,13 @@ export interface Tag {
 export const TAGS: Tag[] = [
   // ── Mood / emotion ────────────────────────────────────────────────
   {
+    id: "happy",
+    label: "Happy",
+    axis: "mood",
+    searchSeeds: ["happy", "good mood", "sunshine"],
+    targetWeights: { joy: 3, positive: 2.5, trust: 0.5 },
+  },
+  {
     id: "chill",
     label: "Chill",
     axis: "mood",
@@ -39,6 +46,13 @@ export const TAGS: Tag[] = [
     targetWeights: { sadness: 3, negative: 1.5, fear: 0.5 },
   },
   {
+    id: "lonely",
+    label: "Lonely",
+    axis: "mood",
+    searchSeeds: ["lonely", "alone", "isolation", "missing someone"],
+    targetWeights: { sadness: 2.5, negative: 1.5, fear: 1 },
+  },
+  {
     id: "angry",
     label: "Angry",
     axis: "mood",
@@ -46,11 +60,25 @@ export const TAGS: Tag[] = [
     targetWeights: { anger: 3, negative: 2, disgust: 1 },
   },
   {
+    id: "rebellious",
+    label: "Rebellious",
+    axis: "mood",
+    searchSeeds: ["rebel", "anthem", "punk attitude", "against the world"],
+    targetWeights: { anger: 2, anticipation: 1.5, surprise: 1, positive: 0.5 },
+  },
+  {
     id: "romantic",
     label: "Romantic",
     axis: "mood",
     searchSeeds: ["love song", "romantic", "falling in love"],
     targetWeights: { joy: 2, trust: 2, positive: 2, anticipation: 1 },
+  },
+  {
+    id: "sensual",
+    label: "Sensual",
+    axis: "mood",
+    searchSeeds: ["sensual", "slow jam", "seductive", "intimate"],
+    targetWeights: { anticipation: 2, joy: 1.5, trust: 1.5 },
   },
   {
     id: "nostalgic",
@@ -67,6 +95,13 @@ export const TAGS: Tag[] = [
     targetWeights: { anticipation: 2.5, joy: 2, positive: 1.5, surprise: 1 },
   },
   {
+    id: "playful",
+    label: "Playful",
+    axis: "mood",
+    searchSeeds: ["fun", "playful", "silly", "bubblegum"],
+    targetWeights: { joy: 2, surprise: 2, positive: 1.5 },
+  },
+  {
     id: "dreamy",
     label: "Dreamy",
     axis: "mood",
@@ -74,11 +109,39 @@ export const TAGS: Tag[] = [
     targetWeights: { anticipation: 2, joy: 1.5, trust: 1, positive: 1, surprise: 0.5 },
   },
   {
+    id: "peaceful",
+    label: "Peaceful",
+    axis: "mood",
+    searchSeeds: ["peaceful", "serene", "calm", "tranquil"],
+    targetWeights: { trust: 2.5, positive: 2, joy: 0.5 },
+  },
+  {
+    id: "mysterious",
+    label: "Mysterious",
+    axis: "mood",
+    searchSeeds: ["mysterious", "noir", "enigma", "shadows"],
+    targetWeights: { surprise: 2, fear: 1.5, anticipation: 1.5 },
+  },
+  {
+    id: "epic",
+    label: "Epic",
+    axis: "mood",
+    searchSeeds: ["epic", "cinematic", "legendary", "heroic"],
+    targetWeights: { anticipation: 2.5, surprise: 1.5, trust: 1, positive: 1 },
+  },
+  {
     id: "gritty",
     label: "Gritty",
     axis: "mood",
     searchSeeds: ["gritty", "dark", "raw", "dirty"],
     targetWeights: { anger: 2, fear: 1.5, negative: 1.5, disgust: 1 },
+  },
+  {
+    id: "spooky",
+    label: "Spooky",
+    axis: "mood",
+    searchSeeds: ["spooky", "haunted", "creepy", "halloween"],
+    targetWeights: { fear: 3, surprise: 1.5, negative: 1 },
   },
   {
     id: "hopeful",
@@ -100,6 +163,13 @@ export const TAGS: Tag[] = [
     axis: "mood",
     searchSeeds: ["empowerment", "confident", "boss", "unstoppable"],
     targetWeights: { trust: 2, positive: 2, joy: 1.5, anger: 0.5, anticipation: 1 },
+  },
+  {
+    id: "grateful",
+    label: "Grateful",
+    axis: "mood",
+    searchSeeds: ["grateful", "thankful", "blessed", "count my blessings"],
+    targetWeights: { trust: 2.5, joy: 2, positive: 2 },
   },
 
   // ── Activity / context ────────────────────────────────────────────
@@ -139,6 +209,13 @@ export const TAGS: Tag[] = [
     targetWeights: { joy: 3, positive: 2, surprise: 1, anticipation: 1.5 },
   },
   {
+    id: "festival",
+    label: "Festival",
+    axis: "activity",
+    searchSeeds: ["festival", "main stage", "crowd anthem"],
+    targetWeights: { joy: 2.5, anticipation: 2, surprise: 1.5, positive: 1.5 },
+  },
+  {
     id: "focus",
     label: "Focus",
     axis: "activity",
@@ -146,11 +223,25 @@ export const TAGS: Tag[] = [
     targetWeights: { trust: 2, anticipation: 1.5, positive: 1 },
   },
   {
+    id: "gaming",
+    label: "Gaming",
+    axis: "activity",
+    searchSeeds: ["gaming", "video game", "boss battle", "level up"],
+    targetWeights: { anticipation: 2.5, surprise: 1.5, joy: 1 },
+  },
+  {
     id: "heartbreak",
     label: "Heartbreak",
     axis: "activity",
     searchSeeds: ["heartbreak", "breakup", "missing you", "moving on"],
     targetWeights: { sadness: 3, negative: 1.5, fear: 0.5, anger: 0.5 },
+  },
+  {
+    id: "wedding",
+    label: "Wedding",
+    axis: "activity",
+    searchSeeds: ["wedding", "first dance", "shaadi", "celebration of love"],
+    targetWeights: { joy: 3, trust: 2, positive: 2 },
   },
   {
     id: "morning",
@@ -173,6 +264,55 @@ export const TAGS: Tag[] = [
     searchSeeds: ["rainy day", "rain", "cozy", "grey skies"],
     targetWeights: { sadness: 2, trust: 1.5, positive: 1 },
   },
+  {
+    id: "beach",
+    label: "Beach",
+    axis: "activity",
+    searchSeeds: ["beach", "summer vibes", "tropical", "poolside"],
+    targetWeights: { joy: 2.5, positive: 2, trust: 0.5 },
+  },
+  {
+    id: "travel",
+    label: "Travel",
+    axis: "activity",
+    searchSeeds: ["travel", "wanderlust", "adventure", "new city"],
+    targetWeights: { joy: 2, anticipation: 2.5, surprise: 1, positive: 1.5 },
+  },
+  {
+    id: "cooking",
+    label: "Cooking",
+    axis: "activity",
+    searchSeeds: ["cooking", "kitchen", "dinner party", "sunday brunch"],
+    targetWeights: { joy: 2, positive: 1.5, trust: 1.5 },
+  },
+  {
+    id: "meditation",
+    label: "Meditation",
+    axis: "activity",
+    searchSeeds: ["meditation", "mindfulness", "breathe", "zen"],
+    targetWeights: { trust: 3, positive: 1.5 },
+  },
+  {
+    id: "getting-ready",
+    label: "Getting Ready",
+    axis: "activity",
+    searchSeeds: ["getting ready", "glam", "feeling myself", "pre game"],
+    targetWeights: { joy: 2, anticipation: 2, positive: 1.5 },
+  },
+  {
+    id: "summer",
+    label: "Summer",
+    axis: "activity",
+    searchSeeds: ["summer", "summer hits", "golden hour"],
+    targetWeights: { joy: 2.5, positive: 2, anticipation: 1 },
+  },
+  {
+    id: "winter",
+    label: "Winter",
+    axis: "activity",
+    searchSeeds: ["winter", "fireplace", "snow", "cozy season"],
+    targetWeights: { trust: 1.5, sadness: 1, positive: 1, joy: 0.5 },
+  },
 
   // ── Genre (optional refinement) ───────────────────────────────────
   { id: "pop", label: "Pop", axis: "genre", searchSeeds: ["pop hits", "pop"], targetWeights: {} },
@@ -181,10 +321,26 @@ export const TAGS: Tag[] = [
   { id: "rnb", label: "R&B", axis: "genre", searchSeeds: ["r&b", "rnb", "soul"], targetWeights: {} },
   { id: "electronic", label: "Electronic", axis: "genre", searchSeeds: ["electronic", "edm", "house"], targetWeights: {} },
   { id: "rock", label: "Rock", axis: "genre", searchSeeds: ["rock", "alternative rock"], targetWeights: {} },
+  { id: "metal", label: "Metal", axis: "genre", searchSeeds: ["metal", "heavy metal", "metalcore"], targetWeights: {} },
   { id: "jazz", label: "Jazz", axis: "genre", searchSeeds: ["jazz", "jazz standards"], targetWeights: {} },
+  { id: "blues", label: "Blues", axis: "genre", searchSeeds: ["blues", "blues classics"], targetWeights: {} },
+  { id: "classical", label: "Classical", axis: "genre", searchSeeds: ["classical", "orchestra", "piano classical"], targetWeights: {} },
   { id: "lofi", label: "Lo-fi", axis: "genre", searchSeeds: ["lofi", "lo-fi beats", "chillhop"], targetWeights: {} },
   { id: "country", label: "Country", axis: "genre", searchSeeds: ["country", "country hits"], targetWeights: {} },
+  { id: "folk", label: "Folk / Acoustic", axis: "genre", searchSeeds: ["folk", "acoustic", "singer songwriter"], targetWeights: {} },
   { id: "latin", label: "Latin", axis: "genre", searchSeeds: ["latin", "reggaeton"], targetWeights: {} },
+  { id: "afrobeats", label: "Afrobeats", axis: "genre", searchSeeds: ["afrobeats", "afropop", "amapiano"], targetWeights: {} },
+  { id: "reggae", label: "Reggae", axis: "genre", searchSeeds: ["reggae", "dancehall"], targetWeights: {} },
+  { id: "bollywood", label: "Bollywood", axis: "genre", searchSeeds: ["bollywood", "hindi songs", "hindi romantic"], targetWeights: {} },
+  { id: "punjabi", label: "Punjabi", axis: "genre", searchSeeds: ["punjabi", "punjabi hits", "bhangra"], targetWeights: {} },
+  { id: "south-indian", label: "South Indian", axis: "genre", searchSeeds: ["tamil songs", "telugu songs", "kollywood"], targetWeights: {} },
+  { id: "kpop", label: "K-Pop", axis: "genre", searchSeeds: ["kpop", "k-pop hits", "korean pop"], targetWeights: {} },
+  { id: "jpop-anime", label: "J-Pop / Anime", axis: "genre", searchSeeds: ["jpop", "anime opening", "japanese pop"], targetWeights: {} },
+  { id: "arabic", label: "Arabic", axis: "genre", searchSeeds: ["arabic pop", "arabic songs"], targetWeights: {} },
+  { id: "funk-disco", label: "Funk / Disco", axis: "genre", searchSeeds: ["funk", "disco", "groove"], targetWeights: {} },
+  { id: "techno", label: "Techno", axis: "genre", searchSeeds: ["techno", "rave", "underground techno"], targetWeights: {} },
+  { id: "phonk", label: "Phonk", axis: "genre", searchSeeds: ["phonk", "drift phonk"], targetWeights: {} },
+  { id: "gospel", label: "Gospel / Worship", axis: "genre", searchSeeds: ["gospel", "worship", "praise"], targetWeights: {} },
 ];
 
 export const TAGS_BY_ID = new Map(TAGS.map((t) => [t.id, t]));

@@ -7,6 +7,7 @@ import type { CuratedTrack, ProgressEvent } from "@/lib/curate";
 import { TagChip } from "@/components/TagChip";
 import { LoadingVinyl } from "@/components/LoadingVinyl";
 import { ResultsList } from "@/components/ResultsList";
+import { SizeDial } from "@/components/SizeDial";
 
 type Phase = "compose" | "loading" | "results";
 
@@ -31,6 +32,7 @@ function stageToText(e: ProgressEvent | null): string {
 export function MoodComposer() {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [size, setSize] = useState(24);
   const [phase, setPhase] = useState<Phase>("compose");
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [tracks, setTracks] = useState<CuratedTrack[]>([]);
@@ -69,7 +71,7 @@ export function MoodComposer() {
       const res = await fetch("/api/curate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, tagIds: [...selected] }),
+        body: JSON.stringify({ text, tagIds: [...selected], size }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
@@ -166,6 +168,18 @@ export function MoodComposer() {
           {error}
         </p>
       )}
+
+      <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-line bg-bg-raised/50 px-5 py-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-dim">
+            Playlist length
+          </p>
+          <p className="mt-1 text-xs text-ink-dim/70">
+            Spin the record — scroll, drag, or tap ±
+          </p>
+        </div>
+        <SizeDial value={size} onChange={setSize} />
+      </div>
 
       <div className="mt-8 flex flex-col gap-5">
         {AXES.map(({ axis, title }) => (
