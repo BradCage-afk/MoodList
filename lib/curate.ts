@@ -154,6 +154,19 @@ function normalizeName(s: string): string {
 }
 
 /**
+ * Key that treats re-releases of the same song as one: same primary artist
+ * plus the title with "(From ...)", "[Remastered]", "- Live" etc. stripped.
+ */
+function versionKey(track: SpotifyTrack): string {
+  const base = track.name
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, "")
+    .split(" - ")[0]
+    .replace(/[^a-z0-9]+/g, "");
+  return `${normalizeName(track.artists[0] ?? "")}|${base || normalizeName(track.name)}`;
+}
+
+/**
  * Did the user literally ask for this track in their free text? True when
  * the text IS one of the track's artists ("c418"), IS the track's base
  * title ("stitches"), or names both title and artist ("stitches by shawn
@@ -242,7 +255,22 @@ export async function curate(
     // Keep the best rank-derived popularity seen across queries
     if (!prev || track.popularity > prev.popularity) byId.set(track.id, track);
   }
-  const pool = [...byId.values()]
+  // Collapse re-releases (same song on multiple albums gets distinct track
+  // ids) — EXCEPT for tracks the user literally searched for, where every
+  // version (acoustic, live, remix) should stay visible.
+  const nText = normalizeName(input.text);
+  const byVersion = new Map<string, SpotifyTrack>();
+  const requestedVersions: SpotifyTrack[] = [];
+  for (const track of byId.values()) {
+    if (matchesQuery(track, nText)) {
+      requestedVersions.push(track);
+      continue;
+    }
+    const key = versionKey(track);
+    const prev = byVersion.get(key);
+    if (!prev || track.popularity > prev.popularity) byVersion.set(key, track);
+  }
+  const pool = [...requestedVersions, ...byVersion.values()]
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, POOL_CAP);
 
@@ -338,7 +366,6 @@ export async function curate(
   // mood scoring only orders within each group. Without this, an
   // instrumental artist search (no lyrics → neutral score) loses its top
   // spots to lyric-matched strangers.
-  const nText = normalizeName(input.text);
   const ranked = scored
     .map((s) => ({
       ...s,
