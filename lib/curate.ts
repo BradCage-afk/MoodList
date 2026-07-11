@@ -151,17 +151,19 @@ function normalizeName(s: string): string {
 }
 
 /**
- * Key that treats re-releases of the same song as one: same primary artist
- * plus the title with "(From ...)", "[Remastered]", "- Live" etc. stripped.
+ * Did the user literally ask for this track in their free text? True when
+ * the text IS one of the track's artists ("c418"), IS the track's base
+ * title ("stitches"), or names both title and artist ("stitches by shawn
+ * mendes"). Such tracks rank ahead of pure mood matches.
  */
-function versionKey(track: SpotifyTrack): string {
-  const base = track.name
-    .toLowerCase()
-    .replace(/\(.*?\)|\[.*?\]/g, "")
-    .split(" - ")[0]
-    .replace(/[^a-z0-9]+/g, "");
-  const title = base || normalizeName(track.name);
-  return `${normalizeName(track.artists[0] ?? "")}|${title}`;
+function matchesQuery(track: SpotifyTrack, nText: string): boolean {
+  if (nText.length < 3) return false;
+  const artistNorms = track.artists.map(normalizeName);
+  if (artistNorms.some((a) => a === nText)) return true;
+  const title = normalizeName(track.name.replace(/\(.*?\)|\[.*?\]/g, "").split(" - ")[0]);
+  if (title.length < 3) return false;
+  if (title === nText) return true;
+  return nText.includes(title) && artistNorms.some((a) => a.length >= 3 && nText.includes(a));
 }
 
 /** Top-n emotion dimensions of a normalized vector, as percentages. */
@@ -237,15 +239,7 @@ export async function curate(
     // Keep the best rank-derived popularity seen across queries
     if (!prev || track.popularity > prev.popularity) byId.set(track.id, track);
   }
-  // Collapse re-releases (same song on multiple albums/soundtracks has
-  // distinct track ids) — keep only the best-ranked copy of each song
-  const byVersion = new Map<string, SpotifyTrack>();
-  for (const track of byId.values()) {
-    const key = versionKey(track);
-    const prev = byVersion.get(key);
-    if (!prev || track.popularity > prev.popularity) byVersion.set(key, track);
-  }
-  const pool = [...byVersion.values()]
+  const pool = [...byId.values()]
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, POOL_CAP);
 
@@ -310,24 +304,28 @@ export async function curate(
     };
   });
 
-  // Blend in a light popularity prior, rank, cap per artist
+  // Blend in a light popularity prior. Tracks the user literally asked for
+  // (artist name or song title in the free text) rank ahead of everything —
+  // mood scoring only orders within each group. Without this, an
+  // instrumental artist search (no lyrics → neutral score) loses its top
+  // spots to lyric-matched strangers.
+  const nText = normalizeName(input.text);
   const ranked = scored
-    .map((s) => ({ ...s, final: 0.85 * s.score + 0.15 * (s.track.popularity / 100) }))
-    .sort((a, b) => b.final - a.final);
+    .map((s) => ({
+      ...s,
+      requested: matchesQuery(s.track, nText),
+      final: 0.85 * s.score + 0.15 * (s.track.popularity / 100),
+    }))
+    .sort((a, b) => Number(b.requested) - Number(a.requested) || b.final - a.final);
 
-  // If the free text IS an artist's name, the user wants that artist's
-  // catalog — lift the diversity cap for them. For longer playlists the
-  // base cap scales up so the pool can actually fill the request.
-  const requestedArtist = normalizeName(input.text);
+  // Diversity cap scales with playlist size; requested tracks bypass it so
+  // an artist search can fill the playlist and song versions all show up.
   const baseCap = Math.max(MAX_PER_ARTIST, Math.ceil(resultSize / 12));
   const perArtist = new Map<string, number>();
   const picked: CuratedTrack[] = [];
-  for (const { track, final, scoredFromLyrics, confidence, emotions, reason } of ranked) {
+  for (const { track, final, scoredFromLyrics, confidence, emotions, reason, requested } of ranked) {
     const artistKey = (track.artists[0] ?? "").toLowerCase();
-    const isRequested =
-      requestedArtist.length > 0 &&
-      track.artists.some((a) => normalizeName(a) === requestedArtist);
-    const cap = isRequested ? resultSize : baseCap;
+    const cap = requested ? resultSize : baseCap;
     const count = perArtist.get(artistKey) ?? 0;
     if (count >= cap) continue;
     perArtist.set(artistKey, count + 1);
@@ -341,7 +339,7 @@ export async function curate(
       scoredFromLyrics,
       confidence: Math.round(confidence * 100) / 100,
       emotions,
-      reason,
+      reason: requested ? "Directly matches what you searched for." : reason,
     });
     if (picked.length >= resultSize) break;
   }
