@@ -1,10 +1,16 @@
 import { TAGS_BY_ID, type Tag } from "@/data/tags";
 import {
+  analyzeText,
   blendVectors,
+  buildIdf,
   cosineSimilarity,
+  NRC_DIMENSIONS,
   scoreText,
   vectorFrom,
+  vectorFromAnalysis,
   type EmotionVector,
+  type NrcDimension,
+  type TextAnalysis,
 } from "@/lib/nrc";
 import { searchTracks, type SpotifyTrack } from "@/lib/spotify";
 import { getLyricsForScoring } from "@/lib/genius";
@@ -29,6 +35,12 @@ export interface CuratedTrack {
   /** 0-1 mood match score (lyrics-based when available). */
   score: number;
   scoredFromLyrics: boolean;
+  /** 0-1: how much we trust the lyric-based emotion reading. */
+  confidence: number;
+  /** Top emotion dimensions of the track's lyrics, as % of its profile. */
+  emotions: { dim: NrcDimension; pct: number }[];
+  /** One-line human explanation of why this track was picked. */
+  reason: string;
 }
 
 export type ProgressEvent =
@@ -138,6 +150,31 @@ function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+/** Top-n emotion dimensions of a normalized vector, as percentages. */
+function topDims(v: EmotionVector, n: number): { dim: NrcDimension; pct: number }[] {
+  return v
+    .map((x, i) => ({ dim: NRC_DIMENSIONS[i], pct: Math.round(x * 100) }))
+    .filter((d) => d.pct > 0)
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, n);
+}
+
+function describePick(
+  emotions: { dim: NrcDimension; pct: number }[],
+  confidence: number,
+  scoredFromLyrics: boolean,
+  targetTop: NrcDimension[]
+): string {
+  if (!scoredFromLyrics) return "No usable lyrics found — ranked by search relevance.";
+  const level = confidence >= 0.7 ? "high" : confidence >= 0.4 ? "medium" : "low";
+  const overlap = emotions.filter((e) => targetTop.includes(e.dim)).map((e) => e.dim);
+  if (overlap.length > 0) {
+    return `Lyrics lean ${overlap.join(" + ")} — right on your target (${level} lyric confidence).`;
+  }
+  const top = emotions.slice(0, 2).map((e) => e.dim);
+  return `Lyrics profile is mostly ${top.join(" + ")} (${level} lyric confidence).`;
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -196,33 +233,60 @@ export async function curate(
   }
   emit({ stage: "pool", candidates: pool.length });
 
-  // Lyrics fetch + scoring, concurrency-limited, per-track failure tolerant
+  // Phase 1: fetch + lexicon-analyze lyrics — no scoring yet, since tf-idf
+  // needs the whole request's corpus first. Concurrency-limited, per-track
+  // failure tolerant.
   let done = 0;
   emit({ stage: "lyrics", done: 0, total: pool.length });
-  const scored = await mapWithConcurrency(pool, LYRICS_CONCURRENCY, async (track) => {
-    let score = NEUTRAL_SCORE;
-    let scoredFromLyrics = false;
+  const analyzed = await mapWithConcurrency(pool, LYRICS_CONCURRENCY, async (track) => {
+    let analysis: TextAnalysis | null = null;
     try {
       const signal = AbortSignal.timeout(LYRICS_TIMEOUT_MS);
       const lyrics = await getLyricsForScoring(track.name, track.artists[0] ?? "", signal);
-      if (lyrics) {
-        const { vector, hits } = scoreText(lyrics);
-        if (hits >= 5) {
-          score = cosineSimilarity(vector, target);
-          scoredFromLyrics = true;
-        }
-      }
+      if (lyrics) analysis = analyzeText(lyrics);
     } catch {
-      // no Genius match / fetch failure / timeout → keep neutral score
+      // no Genius match / fetch failure / timeout → no lyric signal
     }
     done++;
     if (done % 5 === 0 || done === pool.length) {
       emit({ stage: "lyrics", done, total: pool.length });
     }
-    return { track, score, scoredFromLyrics };
+    return { track, analysis };
   });
 
   emit({ stage: "ranking" });
+
+  // Phase 2: tf-idf weighted scoring over this request's lyric corpus.
+  // Confidence (from lexicon hit count × coverage) pulls the score toward
+  // neutral when the lyric evidence is thin — a handful of matched words
+  // should never outrank a solid lyrical match, in either direction.
+  const idf = buildIdf(
+    analyzed.flatMap((a) => (a.analysis && a.analysis.hits > 0 ? [a.analysis] : []))
+  );
+  const targetTop = topDims(target, 2).map((d) => d.dim);
+  const scored = analyzed.map(({ track, analysis }) => {
+    let score = NEUTRAL_SCORE;
+    let confidence = 0;
+    let emotions: { dim: NrcDimension; pct: number }[] = [];
+    if (analysis && analysis.hits > 0) {
+      const vector = vectorFromAnalysis(analysis, idf);
+      const coverage = analysis.tokens > 0 ? analysis.hits / analysis.tokens : 0;
+      confidence = Math.sqrt(
+        Math.min(1, analysis.hits / 25) * Math.min(1, coverage / 0.08)
+      );
+      score = confidence * cosineSimilarity(vector, target) + (1 - confidence) * NEUTRAL_SCORE;
+      emotions = topDims(vector, 3);
+    }
+    const scoredFromLyrics = confidence >= 0.25;
+    return {
+      track,
+      score,
+      confidence,
+      emotions,
+      scoredFromLyrics,
+      reason: describePick(emotions, confidence, scoredFromLyrics, targetTop),
+    };
+  });
 
   // Blend in a light popularity prior, rank, cap per artist
   const ranked = scored
@@ -236,7 +300,7 @@ export async function curate(
   const baseCap = Math.max(MAX_PER_ARTIST, Math.ceil(resultSize / 12));
   const perArtist = new Map<string, number>();
   const picked: CuratedTrack[] = [];
-  for (const { track, final, scoredFromLyrics } of ranked) {
+  for (const { track, final, scoredFromLyrics, confidence, emotions, reason } of ranked) {
     const artistKey = (track.artists[0] ?? "").toLowerCase();
     const isRequested =
       requestedArtist.length > 0 &&
@@ -253,6 +317,9 @@ export async function curate(
       albumArt: track.albumArt,
       score: Math.round(final * 100) / 100,
       scoredFromLyrics,
+      confidence: Math.round(confidence * 100) / 100,
+      emotions,
+      reason,
     });
     if (picked.length >= resultSize) break;
   }

@@ -65,21 +65,83 @@ function lookup(token: string): NrcDimension[] | undefined {
   return undefined;
 }
 
+/** Canonical lexicon word for a token (resolving suffix strips), or null. */
+function canonical(token: string): string | null {
+  if (lexicon[token]) return token;
+  for (const strip of [/s$/, /ing$/, /ed$/, /es$/]) {
+    const base = token.replace(strip, "");
+    if (base !== token && base.length >= 2 && lexicon[base]) return base;
+  }
+  if (/ing$|ed$/.test(token)) {
+    const base = token.replace(/ing$|ed$/, "") + "e";
+    if (lexicon[base]) return base;
+  }
+  return null;
+}
+
+export interface TextAnalysis {
+  /** Canonical lexicon word → occurrence count in this text. */
+  counts: Map<string, number>;
+  /** Total tokens examined (for coverage = hits / tokens). */
+  tokens: number;
+  /** Tokens that matched the lexicon. */
+  hits: number;
+}
+
+/** Tokenize + match against the lexicon without building a vector yet. */
+export function analyzeText(text: string): TextAnalysis {
+  const counts = new Map<string, number>();
+  let tokens = 0;
+  let hits = 0;
+  for (const token of tokenize(text)) {
+    tokens++;
+    const word = canonical(token);
+    if (!word) continue;
+    hits++;
+    counts.set(word, (counts.get(word) ?? 0) + 1);
+  }
+  return { counts, tokens, hits };
+}
+
+/**
+ * Smoothed inverse document frequency over a per-request corpus of analyses.
+ * Downweights words that appear in most lyrics ("love", "baby") so they stop
+ * dominating every song's emotion profile.
+ */
+export function buildIdf(docs: TextAnalysis[]): Map<string, number> {
+  const df = new Map<string, number>();
+  for (const doc of docs) {
+    for (const word of doc.counts.keys()) df.set(word, (df.get(word) ?? 0) + 1);
+  }
+  const n = docs.length;
+  const idf = new Map<string, number>();
+  for (const [word, count] of df) {
+    idf.set(word, Math.log((n + 1) / (count + 1)) + 1);
+  }
+  return idf;
+}
+
+/** Build a normalized emotion vector from an analysis: sublinear tf × idf. */
+export function vectorFromAnalysis(
+  analysis: TextAnalysis,
+  idf?: Map<string, number>
+): EmotionVector {
+  const v = zeroVector();
+  for (const [word, count] of analysis.counts) {
+    const weight = (1 + Math.log(count)) * (idf?.get(word) ?? 1);
+    for (const dim of lexicon[word]) v[DIM_INDEX.get(dim)!] += weight;
+  }
+  return normalize(v);
+}
+
 /**
  * Score free text (lyrics or a user query) into a normalized emotion vector.
  * `hits` is how many tokens matched the lexicon — callers use it to treat
  * low-signal texts as neutral rather than confidently wrong.
  */
 export function scoreText(text: string): { vector: EmotionVector; hits: number } {
-  const v = zeroVector();
-  let hits = 0;
-  for (const token of tokenize(text)) {
-    const dims = lookup(token);
-    if (!dims) continue;
-    hits++;
-    for (const dim of dims) v[DIM_INDEX.get(dim)!]++;
-  }
-  return { vector: normalize(v), hits };
+  const analysis = analyzeText(text);
+  return { vector: vectorFromAnalysis(analysis), hits: analysis.hits };
 }
 
 /** Weighted average of several vectors (skips zero vectors), re-normalized. */

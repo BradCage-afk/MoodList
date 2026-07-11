@@ -9,6 +9,21 @@ const MAX = 50;
 const DEG_PER_STEP = 8;
 const NOTES = ["♪", "♫", "♩", "♬"];
 
+/**
+ * Pointer angle in degrees around a center, or null when too close to the
+ * center for the direction to be meaningful. Screen y grows downward, so
+ * atan2 increases clockwise — matching the disc's visual rotation.
+ */
+function pointAngle(
+  point: { x: number; y: number },
+  center: { x: number; y: number }
+): number | null {
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  if (Math.hypot(dx, dy) < 12) return null;
+  return (Math.atan2(dy, dx) * 180) / Math.PI;
+}
+
 interface SizeDialProps {
   value: number;
   onChange: (next: number) => void;
@@ -25,7 +40,9 @@ export function SizeDial({ value, onChange }: SizeDialProps) {
   const latest = useRef({ value, onChange });
   latest.current = { value, onChange };
   const wheelAcc = useRef(0);
-  const panAcc = useRef(0);
+  const panDeg = useRef(0);
+  const panCenter = useRef({ x: 0, y: 0 });
+  const panLastAngle = useRef<number | null>(null);
   const [noteBurst, setNoteBurst] = useState<{ id: number; dir: 1 | -1 } | null>(null);
 
   const step = (delta: number) => {
@@ -98,13 +115,40 @@ export function SizeDial({ value, onChange }: SizeDialProps) {
           }}
           animate={{ rotate: rotation }}
           transition={{ type: "spring", stiffness: 260, damping: 26 }}
+          onPanStart={(_, info) => {
+            // Rotational drag: track the pointer's angle around the disc
+            // center; clockwise = more songs. info.point is page-based, so
+            // convert the rect to page coordinates too.
+            const rect = discRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            panCenter.current = {
+              x: rect.left + window.scrollX + rect.width / 2,
+              y: rect.top + window.scrollY + rect.height / 2,
+            };
+            panDeg.current = 0;
+            panLastAngle.current = pointAngle(info.point, panCenter.current);
+          }}
           onPan={(_, info) => {
-            panAcc.current += info.delta.y;
-            const steps = Math.trunc(panAcc.current / 10);
-            if (steps !== 0) {
-              panAcc.current -= steps * 10;
-              step(-steps);
+            const angle = pointAngle(info.point, panCenter.current);
+            if (angle === null || panLastAngle.current === null) {
+              panLastAngle.current = angle;
+              return;
             }
+            // Shortest signed difference, so crossing the ±180° seam
+            // doesn't cause a jump
+            let delta = angle - panLastAngle.current;
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+            panLastAngle.current = angle;
+            panDeg.current += delta;
+            const steps = Math.trunc(panDeg.current / DEG_PER_STEP);
+            if (steps !== 0) {
+              panDeg.current -= steps * DEG_PER_STEP;
+              step(steps);
+            }
+          }}
+          onPanEnd={() => {
+            panLastAngle.current = null;
           }}
         >
           {/* Sheen so the spin reads visually */}

@@ -175,7 +175,7 @@ export function MoodComposer() {
             Playlist length
           </p>
           <p className="mt-1 text-xs text-ink-dim/70">
-            Spin the record — scroll, drag, or tap ±
+            Spin it clockwise for more — drag, scroll, or tap ±
           </p>
         </div>
         <SizeDial value={size} onChange={setSize} />
