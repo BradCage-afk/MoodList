@@ -63,8 +63,14 @@ const JUNK_TITLE = /nonstop|non stop|mashup|medley|megamix|jukebox|mixtape|dj mi
 // can fill out a thin pool but never outrank a real lyrical match.
 const NEUTRAL_SCORE = 0.3;
 
-/** Blend selected tags + free text into one target vector in NRC space. */
-export function buildTargetVector(input: CurateInput): EmotionVector {
+/**
+ * Blend selected tags + free text into one target vector in NRC space.
+ * Returns null when the input carries no emotional signal (e.g. "hindi",
+ * an artist name, or genre-only tags) — callers must then rank by search
+ * relevance instead. Substituting a default "positive" target here made
+ * every emotionless query reward generically upbeat English lyrics.
+ */
+export function buildTargetVector(input: CurateInput): EmotionVector | null {
   const tags = input.tagIds
     .map((id) => TAGS_BY_ID.get(id))
     .filter((t): t is Tag => !!t);
@@ -78,10 +84,7 @@ export function buildTargetVector(input: CurateInput): EmotionVector {
     if (hits > 0) entries.push({ vector, weight: 1.5 });
   }
 
-  if (entries.length === 0) {
-    // Nothing emotional to aim at — default to a broadly positive profile
-    return vectorFrom({ joy: 1, positive: 1, trust: 0.5 });
-  }
+  if (entries.length === 0) return null;
   return blendVectors(entries);
 }
 
@@ -249,60 +252,86 @@ export async function curate(
   }
   emit({ stage: "pool", candidates: pool.length });
 
-  // Phase 1: fetch + lexicon-analyze lyrics — no scoring yet, since tf-idf
-  // needs the whole request's corpus first. Concurrency-limited, per-track
-  // failure tolerant.
-  let done = 0;
-  emit({ stage: "lyrics", done: 0, total: pool.length });
-  const analyzed = await mapWithConcurrency(pool, LYRICS_CONCURRENCY, async (track) => {
-    let analysis: TextAnalysis | null = null;
-    try {
-      const signal = AbortSignal.timeout(LYRICS_TIMEOUT_MS);
-      const lyrics = await getLyricsForScoring(track.name, track.artists[0] ?? "", signal);
-      if (lyrics) analysis = analyzeText(lyrics);
-    } catch {
-      // no Genius match / fetch failure / timeout → no lyric signal
-    }
-    done++;
-    if (done % 5 === 0 || done === pool.length) {
-      emit({ stage: "lyrics", done, total: pool.length });
-    }
-    return { track, analysis };
-  });
+  interface ScoredTrack {
+    track: SpotifyTrack;
+    score: number;
+    confidence: number;
+    emotions: { dim: NrcDimension; pct: number }[];
+    scoredFromLyrics: boolean;
+    reason: string;
+  }
+  let scored: ScoredTrack[];
 
-  emit({ stage: "ranking" });
+  if (target) {
+    // Phase 1: fetch + lexicon-analyze lyrics — no scoring yet, since tf-idf
+    // needs the whole request's corpus first. Concurrency-limited, per-track
+    // failure tolerant.
+    let done = 0;
+    emit({ stage: "lyrics", done: 0, total: pool.length });
+    const analyzed = await mapWithConcurrency(pool, LYRICS_CONCURRENCY, async (track) => {
+      let analysis: TextAnalysis | null = null;
+      try {
+        const signal = AbortSignal.timeout(LYRICS_TIMEOUT_MS);
+        const lyrics = await getLyricsForScoring(track.name, track.artists[0] ?? "", signal);
+        if (lyrics) analysis = analyzeText(lyrics);
+      } catch {
+        // no Genius match / fetch failure / timeout → no lyric signal
+      }
+      done++;
+      if (done % 5 === 0 || done === pool.length) {
+        emit({ stage: "lyrics", done, total: pool.length });
+      }
+      return { track, analysis };
+    });
 
-  // Phase 2: tf-idf weighted scoring over this request's lyric corpus.
-  // Confidence (from lexicon hit count × coverage) pulls the score toward
-  // neutral when the lyric evidence is thin — a handful of matched words
-  // should never outrank a solid lyrical match, in either direction.
-  const idf = buildIdf(
-    analyzed.flatMap((a) => (a.analysis && a.analysis.hits > 0 ? [a.analysis] : []))
-  );
-  const targetTop = topDims(target, 2).map((d) => d.dim);
-  const scored = analyzed.map(({ track, analysis }) => {
-    let score = NEUTRAL_SCORE;
-    let confidence = 0;
-    let emotions: { dim: NrcDimension; pct: number }[] = [];
-    if (analysis && analysis.hits > 0) {
-      const vector = vectorFromAnalysis(analysis, idf);
-      const coverage = analysis.tokens > 0 ? analysis.hits / analysis.tokens : 0;
-      confidence = Math.sqrt(
-        Math.min(1, analysis.hits / 25) * Math.min(1, coverage / 0.08)
-      );
-      score = confidence * cosineSimilarity(vector, target) + (1 - confidence) * NEUTRAL_SCORE;
-      emotions = topDims(vector, 3);
-    }
-    const scoredFromLyrics = confidence >= 0.25;
-    return {
+    emit({ stage: "ranking" });
+
+    // Phase 2: tf-idf weighted scoring over this request's lyric corpus.
+    // Confidence (from lexicon hit count × coverage) pulls the score toward
+    // neutral when the lyric evidence is thin — a handful of matched words
+    // should never outrank a solid lyrical match, in either direction.
+    const idf = buildIdf(
+      analyzed.flatMap((a) => (a.analysis && a.analysis.hits > 0 ? [a.analysis] : []))
+    );
+    const targetTop = topDims(target, 2).map((d) => d.dim);
+    scored = analyzed.map(({ track, analysis }) => {
+      let score = NEUTRAL_SCORE;
+      let confidence = 0;
+      let emotions: { dim: NrcDimension; pct: number }[] = [];
+      if (analysis && analysis.hits > 0) {
+        const vector = vectorFromAnalysis(analysis, idf);
+        const coverage = analysis.tokens > 0 ? analysis.hits / analysis.tokens : 0;
+        confidence = Math.sqrt(
+          Math.min(1, analysis.hits / 25) * Math.min(1, coverage / 0.08)
+        );
+        score = confidence * cosineSimilarity(vector, target) + (1 - confidence) * NEUTRAL_SCORE;
+        emotions = topDims(vector, 3);
+      }
+      const scoredFromLyrics = confidence >= 0.25;
+      return {
+        track,
+        score,
+        confidence,
+        emotions,
+        scoredFromLyrics,
+        reason: describePick(emotions, confidence, scoredFromLyrics, targetTop),
+      };
+    });
+  } else {
+    // No emotional target ("hindi", an artist name, genre-only tags):
+    // mood-ranking would just reward whichever lyrics happen to look
+    // positive, so rank purely by search relevance — and skip lyric
+    // fetching entirely.
+    emit({ stage: "ranking" });
+    scored = pool.map((track) => ({
       track,
-      score,
-      confidence,
-      emotions,
-      scoredFromLyrics,
-      reason: describePick(emotions, confidence, scoredFromLyrics, targetTop),
-    };
-  });
+      score: NEUTRAL_SCORE,
+      confidence: 0,
+      emotions: [],
+      scoredFromLyrics: false,
+      reason: "Ranked by search relevance — add mood tags or feeling words for lyric matching.",
+    }));
+  }
 
   // Blend in a light popularity prior. Tracks the user literally asked for
   // (artist name or song title in the free text) rank ahead of everything —
@@ -314,7 +343,9 @@ export async function curate(
     .map((s) => ({
       ...s,
       requested: matchesQuery(s.track, nText),
-      final: 0.85 * s.score + 0.15 * (s.track.popularity / 100),
+      final: target
+        ? 0.85 * s.score + 0.15 * (s.track.popularity / 100)
+        : s.track.popularity / 100,
     }))
     .sort((a, b) => Number(b.requested) - Number(a.requested) || b.final - a.final);
 
