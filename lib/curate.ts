@@ -153,17 +153,32 @@ function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+/** Track title with "(From ...)", "[Remastered]", "- Live" etc. stripped. */
+function baseTitle(track: SpotifyTrack): string {
+  const base = normalizeName(track.name.replace(/\(.*?\)|\[.*?\]/g, "").split(" - ")[0]);
+  return base || normalizeName(track.name);
+}
+
 /**
- * Key that treats re-releases of the same song as one: same primary artist
- * plus the title with "(From ...)", "[Remastered]", "- Live" etc. stripped.
+ * Key that treats re-releases of the same song as one. All artists, sorted:
+ * collab releases list the same artists in different orders ("Señorita" is
+ * Shawn-first on one album, Camila-first on another), while a cover by a
+ * different artist still gets its own key.
  */
 function versionKey(track: SpotifyTrack): string {
-  const base = track.name
-    .toLowerCase()
-    .replace(/\(.*?\)|\[.*?\]/g, "")
-    .split(" - ")[0]
-    .replace(/[^a-z0-9]+/g, "");
-  return `${normalizeName(track.artists[0] ?? "")}|${base || normalizeName(track.name)}`;
+  return `${track.artists.map(normalizeName).sort().join(",")}|${baseTitle(track)}`;
+}
+
+/**
+ * The free text names this song's TITLE ("stitches", "stitches by shawn
+ * mendes") — only then do all its versions stay. An artist-only search must
+ * not exempt the artist's whole catalog from re-release dedupe, or a
+ * 30-song artist playlist fills up with nine copies of one hit.
+ */
+function titleRequested(track: SpotifyTrack, nText: string): boolean {
+  if (nText.length < 3) return false;
+  const title = baseTitle(track);
+  return title.length >= 3 && (title === nText || nText.includes(title));
 }
 
 /**
@@ -176,7 +191,7 @@ function matchesQuery(track: SpotifyTrack, nText: string): boolean {
   if (nText.length < 3) return false;
   const artistNorms = track.artists.map(normalizeName);
   if (artistNorms.some((a) => a === nText)) return true;
-  const title = normalizeName(track.name.replace(/\(.*?\)|\[.*?\]/g, "").split(" - ")[0]);
+  const title = baseTitle(track);
   if (title.length < 3) return false;
   if (title === nText) return true;
   return nText.includes(title) && artistNorms.some((a) => a.length >= 3 && nText.includes(a));
@@ -256,13 +271,13 @@ export async function curate(
     if (!prev || track.popularity > prev.popularity) byId.set(track.id, track);
   }
   // Collapse re-releases (same song on multiple albums gets distinct track
-  // ids) — EXCEPT for tracks the user literally searched for, where every
-  // version (acoustic, live, remix) should stay visible.
+  // ids) — EXCEPT versions of a song the user searched for BY TITLE, where
+  // every version (acoustic, live, remix) should stay visible.
   const nText = normalizeName(input.text);
   const byVersion = new Map<string, SpotifyTrack>();
   const requestedVersions: SpotifyTrack[] = [];
   for (const track of byId.values()) {
-    if (matchesQuery(track, nText)) {
+    if (titleRequested(track, nText)) {
       requestedVersions.push(track);
       continue;
     }
