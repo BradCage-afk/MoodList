@@ -45,9 +45,12 @@ export function SizeDial({ value, onChange }: SizeDialProps) {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       wheelAcc.current += e.deltaY;
-      while (Math.abs(wheelAcc.current) >= 24) {
-        step(wheelAcc.current > 0 ? -1 : 1);
-        wheelAcc.current -= Math.sign(wheelAcc.current) * 24;
+      // Batch into ONE step() call — repeated ±1 steps in a loop would all
+      // read the same pre-render value and collapse into a single change
+      const steps = Math.trunc(wheelAcc.current / 24);
+      if (steps !== 0) {
+        wheelAcc.current -= steps * 24;
+        step(-steps);
       }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -97,9 +100,10 @@ export function SizeDial({ value, onChange }: SizeDialProps) {
           transition={{ type: "spring", stiffness: 260, damping: 26 }}
           onPan={(_, info) => {
             panAcc.current += info.delta.y;
-            while (Math.abs(panAcc.current) >= 10) {
-              step(panAcc.current > 0 ? -1 : 1);
-              panAcc.current -= Math.sign(panAcc.current) * 10;
+            const steps = Math.trunc(panAcc.current / 10);
+            if (steps !== 0) {
+              panAcc.current -= steps * 10;
+              step(-steps);
             }
           }}
         >
