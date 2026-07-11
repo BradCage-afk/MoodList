@@ -1,5 +1,7 @@
 # Moodlist — live mood-curated Spotify playlists
 
+**Live at [moodlist-app.vercel.app](https://moodlist-app.vercel.app)**
+
 Type how you feel, spin a vinyl to pick the playlist length, and get a
 live-curated playlist of real Spotify tracks — **ranked by what their lyrics
 actually say**, not by a pre-baked database. One click exports it to your
