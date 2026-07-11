@@ -137,7 +137,9 @@ export function MoodComposer() {
       <div className="rounded-2xl border border-line bg-bg-raised/70 p-2 shadow-2xl shadow-black/40 backdrop-blur">
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          // Collapse runs of whitespace and strip leading spaces as you type
+          // so blanks don't eat into the character budget
+          onChange={(e) => setText(e.target.value.replace(/\s{2,}/g, " ").trimStart())}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -145,12 +147,18 @@ export function MoodComposer() {
             }
           }}
           rows={2}
-          maxLength={300}
+          maxLength={80}
           placeholder="Describe the vibe… “rainy sunday, missing someone, but hopeful”"
           className="w-full resize-none bg-transparent px-4 py-3 text-base placeholder:text-ink-dim/60 focus:outline-none"
         />
         <div className="flex items-center justify-between px-2 pb-1">
-          <span className="text-xs text-ink-dim/70">
+          <span className="text-xs text-ink-dim/70 tabular-nums">
+            {text.length > 0 && (
+              <span className={text.length >= 70 ? "text-accent-3" : ""}>
+                {text.length}/80
+              </span>
+            )}
+            {text.length > 0 && selected.size > 0 && " · "}
             {selected.size > 0 && `${selected.size} tag${selected.size > 1 ? "s" : ""} selected`}
           </span>
           <button

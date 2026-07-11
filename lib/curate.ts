@@ -150,6 +150,20 @@ function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+/**
+ * Key that treats re-releases of the same song as one: same primary artist
+ * plus the title with "(From ...)", "[Remastered]", "- Live" etc. stripped.
+ */
+function versionKey(track: SpotifyTrack): string {
+  const base = track.name
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, "")
+    .split(" - ")[0]
+    .replace(/[^a-z0-9]+/g, "");
+  const title = base || normalizeName(track.name);
+  return `${normalizeName(track.artists[0] ?? "")}|${title}`;
+}
+
 /** Top-n emotion dimensions of a normalized vector, as percentages. */
 function topDims(v: EmotionVector, n: number): { dim: NrcDimension; pct: number }[] {
   return v
@@ -223,7 +237,15 @@ export async function curate(
     // Keep the best rank-derived popularity seen across queries
     if (!prev || track.popularity > prev.popularity) byId.set(track.id, track);
   }
-  const pool = [...byId.values()]
+  // Collapse re-releases (same song on multiple albums/soundtracks has
+  // distinct track ids) — keep only the best-ranked copy of each song
+  const byVersion = new Map<string, SpotifyTrack>();
+  for (const track of byId.values()) {
+    const key = versionKey(track);
+    const prev = byVersion.get(key);
+    if (!prev || track.popularity > prev.popularity) byVersion.set(key, track);
+  }
+  const pool = [...byVersion.values()]
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, POOL_CAP);
 
@@ -332,6 +354,6 @@ export function summarize(input: CurateInput): string {
     .map((id) => TAGS_BY_ID.get(id)?.label)
     .filter(Boolean) as string[];
   const parts = [...labels];
-  if (input.text.trim()) parts.push(`“${input.text.trim().slice(0, 40)}”`);
+  if (input.text.trim()) parts.push(`“${input.text.trim().slice(0, 80)}”`);
   return parts.slice(0, 4).join(" · ") || "Custom mix";
 }
