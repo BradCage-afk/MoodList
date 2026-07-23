@@ -44,22 +44,38 @@ function throttled<T>(fn: () => Promise<T>): Promise<T> {
   return next as Promise<T>;
 }
 
-export async function spotifyGet<T>(path: string, attempt = 0): Promise<T> {
+// Retries live INSIDE one queued task (never re-enter throttled() from a
+// running task — that deadlocks the queue, drains the event loop, and the
+// process exits 0 mid-run with no error).
+export async function spotifyGet<T>(path: string): Promise<T> {
   return throttled(async () => {
-    const res = await fetch(`https://api.spotify.com/v1${path}`, {
-      headers: { Authorization: `Bearer ${await token()}` },
-    });
-    if (res.status === 429 && attempt < 5) {
-      const retryAfter = Number(res.headers.get("retry-after") ?? 2);
-      await new Promise((r) => setTimeout(r, (retryAfter + 1) * 1000));
-      return spotifyGet<T>(path, attempt + 1);
+    for (let attempt = 0; ; attempt++) {
+      let res: Response;
+      try {
+        res = await fetch(`https://api.spotify.com/v1${path}`, {
+          headers: { Authorization: `Bearer ${await token()}` },
+          // A hung request would otherwise stall the queue forever.
+          signal: AbortSignal.timeout(30_000),
+        });
+      } catch (err) {
+        if (attempt < 3 && /timeout|abort|fetch failed|ECONNRESET/i.test(String(err))) {
+          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+          continue;
+        }
+        throw err;
+      }
+      if (res.status === 429 && attempt < 5) {
+        const retryAfter = Number(res.headers.get("retry-after") ?? 2);
+        await new Promise((r) => setTimeout(r, (retryAfter + 1) * 1000));
+        continue;
+      }
+      if (res.status >= 500 && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) throw new Error(`Spotify GET ${path} → ${res.status} ${(await res.text()).slice(0, 120)}`);
+      return (await res.json()) as T;
     }
-    if ((res.status >= 500 || res.status === 0) && attempt < 3) {
-      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-      return spotifyGet<T>(path, attempt + 1);
-    }
-    if (!res.ok) throw new Error(`Spotify GET ${path} → ${res.status} ${(await res.text()).slice(0, 120)}`);
-    return (await res.json()) as T;
   });
 }
 
