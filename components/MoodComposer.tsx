@@ -82,6 +82,12 @@ export function MoodComposer() {
     setFromHistory(false);
   }
 
+  function clearAll() {
+    setText("");
+    setSelected(new Set());
+    setInstrumentalOnly(false);
+  }
+
   async function submit() {
     if (!canSubmit) return;
     setError(null);
@@ -171,14 +177,25 @@ export function MoodComposer() {
           className="w-full resize-none bg-transparent px-4 py-3 text-base placeholder:text-ink-dim/60 focus:outline-none"
         />
         <div className="flex items-center justify-between px-2 pb-1">
-          <span className="text-xs text-ink-dim/70 tabular-nums">
-            {text.length > 0 && (
-              <span className={text.length >= 70 ? "text-accent-3" : ""}>
-                {text.length}/80
-              </span>
+          <span className="flex items-center gap-2.5 text-xs text-ink-dim/70 tabular-nums">
+            <span>
+              {text.length > 0 && (
+                <span className={text.length >= 70 ? "text-accent-3" : ""}>
+                  {text.length}/80
+                </span>
+              )}
+              {text.length > 0 && selected.size > 0 && " · "}
+              {selected.size > 0 && `${selected.size} tag${selected.size > 1 ? "s" : ""} selected`}
+            </span>
+            {canSubmit && (
+              <button
+                type="button"
+                onClick={clearAll}
+                className="cursor-pointer rounded-full border border-line px-2.5 py-0.5 text-xs text-ink-dim hover:border-red-400/50 hover:text-red-300 transition-colors"
+              >
+                ✕ Clear all
+              </button>
             )}
-            {text.length > 0 && selected.size > 0 && " · "}
-            {selected.size > 0 && `${selected.size} tag${selected.size > 1 ? "s" : ""} selected`}
           </span>
           <button
             onClick={submit}

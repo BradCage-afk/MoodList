@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #161210;
-  --bg-raised: #201a16;
-  --line: #372d26;
-  --ink: #f3ede3;
-  --ink-dim: #a89c8c;
-  --accent: #e89b4b;
-  --accent-2: #d96f4e;
-  --accent-3: #caa96b;
+  --bg: #0a0b12;
+  --bg-raised: #11131f;
+  --line: #252a40;
+  --ink: #ecebf3;
+  --ink-dim: #8d90a8;
+  --accent: #a855f7;
+  --accent-2: #ec4899;
+  --accent-3: #f59e0b;
 }
 
 @theme inline {
@@ -47,10 +47,10 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232, 155, 75, 0.1), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(217, 111, 78, 0.06), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(168, 85, 247, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(59, 130, 246, 0.08), transparent);
 }
 
 ::selection {
-  background: rgba(232, 155, 75, 0.35);
+  background: rgba(168, 85, 247, 0.4);
 }
