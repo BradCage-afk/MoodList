@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { AXES, TAGS } from "@/data/tags";
+import { blendGlows, unwrapHue } from "@/lib/moodGlow";
 import type { RankedTrack } from "@/lib/query";
 import { TagChip } from "@/components/TagChip";
 import { LoadingVinyl } from "@/components/LoadingVinyl";
@@ -11,6 +12,19 @@ import { SizeDial } from "@/components/SizeDial";
 import { HistoryPanel } from "@/components/HistoryPanel";
 
 type Phase = "compose" | "loading" | "results";
+
+const SUGGESTIONS = [
+  "rainy sunday, missing someone",
+  "pre-workout hype",
+  "late night drive",
+  "quiet focus, no words",
+];
+
+const SECTION_TINT: Record<string, string> = {
+  mood: "bg-cat-mood/[0.04]",
+  activity: "bg-cat-activity/[0.04]",
+  genre: "bg-cat-genre/[0.04]",
+};
 
 export function MoodComposer() {
   const [text, setText] = useState("");
@@ -26,6 +40,26 @@ export function MoodComposer() {
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = text.trim().length > 0 || selected.size > 0 || instrumentalOnly;
+  const prevHue = useRef(280);
+
+  // Mood-reactive background: blend selected mood tags' hues (circular
+  // mean) into CSS vars; body::after transitions them like ambient light.
+  useEffect(() => {
+    const root = document.documentElement;
+    const glows = [...selected]
+      .map((id) => TAGS.find((t) => t.id === id)?.glow)
+      .filter((g): g is NonNullable<typeof g> => !!g);
+    const blend = blendGlows(glows);
+    if (!blend) {
+      root.style.setProperty("--glow-a", "0");
+      return;
+    }
+    const hue = unwrapHue(prevHue.current, blend.h);
+    prevHue.current = hue;
+    root.style.setProperty("--glow-h", String(Math.round(hue)));
+    root.style.setProperty("--glow-s", `${Math.round(blend.s)}%`);
+    root.style.setProperty("--glow-a", "0.16");
+  }, [selected]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -150,6 +184,22 @@ export function MoodComposer() {
         </div>
       </div>
 
+      {text.length === 0 && selected.size === 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-ink-dim/70">Try:</span>
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setText(s)}
+              className="cursor-pointer animate-pulse [animation-duration:3.2s] rounded-full border border-accent/25 bg-accent/[0.07] px-3.5 py-1.5 text-xs text-ink-dim hover:animate-none hover:border-accent/60 hover:text-ink transition-colors"
+            >
+              “{s}”
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && (
         <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
           {error}
@@ -209,13 +259,11 @@ export function MoodComposer() {
         onRestore={restoreFromHistory}
       />
 
-      <div className="mt-8 flex flex-col gap-5">
+      <div className="mt-8 flex flex-col gap-8">
         {AXES.map(({ axis, title }) => (
-          <div key={axis}>
-            <p className="mb-2.5 text-xs font-medium uppercase tracking-[0.15em] text-ink-dim">
-              {title}
-            </p>
-            <div className="flex flex-wrap gap-2">
+          <div key={axis} className={`rounded-2xl p-5 ${SECTION_TINT[axis]}`}>
+            <p className="mb-3.5 text-sm font-medium text-ink">{title}</p>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
               {TAGS.filter((t) => t.axis === axis).map((tag) => (
                 <TagChip
                   key={tag.id}

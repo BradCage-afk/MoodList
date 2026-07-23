@@ -131,13 +131,17 @@ export function ResultsList({
         </p>
       )}
 
-      <ol className="flex flex-col gap-1.5">
+      {/* No staggered reveal: an overwhelmed or rushed user wants the answer
+          now, not an entrance animation — the whole list fades in at once. */}
+      <motion.ol
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+        className="flex flex-col gap-1.5"
+      >
         {tracks.map((track, i) => (
-          <motion.li
+          <li
             key={track.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i * 0.04, 0.8), duration: 0.35 }}
             className="rounded-xl border border-line/60 bg-bg-raised/60 hover:border-accent/40 transition-colors"
           >
             <button
@@ -151,17 +155,17 @@ export function ResultsList({
                 <Image
                   src={track.albumArt}
                   alt=""
-                  width={44}
-                  height={44}
-                  className="rounded-md"
+                  width={64}
+                  height={64}
+                  className="rounded-lg shadow-md shadow-black/30"
                   unoptimized
                 />
               ) : (
-                <div className="h-11 w-11 rounded-md bg-gradient-to-br from-accent/40 to-accent-2/40" />
+                <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-accent/40 to-accent-2/40" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-sm">{track.name}</p>
-                <p className="truncate text-xs text-ink-dim">{track.artists.join(", ")}</p>
+                <p className="truncate font-semibold text-[15px]">{track.name}</p>
+                <p className="truncate text-xs text-ink-dim/80">{track.artists.join(", ")}</p>
               </div>
               {track.tags.instrumental && (
                 <span className="shrink-0 text-[10px] uppercase tracking-wide text-ink-dim/70">
@@ -206,9 +210,9 @@ export function ResultsList({
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.li>
+          </li>
         ))}
-      </ol>
+      </motion.ol>
     </div>
   );
 }

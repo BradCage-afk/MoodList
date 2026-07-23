@@ -2,18 +2,24 @@
 
 import type { TagAxis } from "@/data/tags";
 
+/**
+ * Selected chips are the only loud element in the grid; unselected chips are
+ * a whisper — near-invisible border, muted text, and a faint per-category
+ * tint so the section's color family reads before any text does
+ * (mood = purple, activity = blue, genre = green).
+ */
 const AXIS_STYLES: Record<TagAxis, { on: string; off: string }> = {
   mood: {
-    on: "border-accent bg-accent/20 text-white shadow-[0_0_14px_rgba(168,85,247,0.35)]",
-    off: "border-line text-ink-dim hover:border-accent/60 hover:text-ink",
+    on: "border-cat-mood bg-cat-mood/20 text-white shadow-[0_0_14px_rgba(168,85,247,0.35)]",
+    off: "border-cat-mood/15 bg-cat-mood/[0.05] text-ink-dim hover:border-cat-mood/50 hover:text-ink",
   },
   activity: {
-    on: "border-accent-2 bg-accent-2/20 text-white shadow-[0_0_14px_rgba(236,72,153,0.35)]",
-    off: "border-line text-ink-dim hover:border-accent-2/60 hover:text-ink",
+    on: "border-cat-activity bg-cat-activity/20 text-white shadow-[0_0_14px_rgba(56,189,248,0.35)]",
+    off: "border-cat-activity/15 bg-cat-activity/[0.05] text-ink-dim hover:border-cat-activity/50 hover:text-ink",
   },
   genre: {
-    on: "border-accent-3 bg-accent-3/20 text-white shadow-[0_0_14px_rgba(245,158,11,0.3)]",
-    off: "border-line text-ink-dim hover:border-accent-3/60 hover:text-ink",
+    on: "border-cat-genre bg-cat-genre/20 text-white shadow-[0_0_14px_rgba(52,211,153,0.3)]",
+    off: "border-cat-genre/15 bg-cat-genre/[0.05] text-ink-dim hover:border-cat-genre/50 hover:text-ink",
   },
 };
 
@@ -34,8 +40,8 @@ export function TagChip({
       type="button"
       onClick={onToggle}
       aria-pressed={selected}
-      className={`cursor-pointer rounded-full border px-4 py-1.5 text-sm font-medium transition-all active:scale-95 ${
-        selected ? style.on : style.off
+      className={`cursor-pointer justify-self-start rounded-full border px-4 py-1.5 text-sm transition-all active:scale-95 ${
+        selected ? `font-medium ${style.on}` : `font-normal ${style.off}`
       }`}
     >
       {label}
