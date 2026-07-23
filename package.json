@@ -1,12 +1,19 @@
 {
-  "name": "mood-playlist",
-  "version": "0.1.0",
+  "name": "moodlist",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "index:auth": "tsx scripts/indexer/spotify-user-auth.ts",
+    "index:source": "tsx scripts/indexer/01-source.ts",
+    "index:tag": "tsx scripts/indexer/02-tag-sources.ts",
+    "index:collect": "tsx scripts/indexer/03-collect.ts",
+    "index:score": "tsx scripts/indexer/04-score.ts",
+    "index:escalate": "tsx scripts/indexer/05-escalate.ts",
+    "index:summary": "tsx scripts/indexer/06-summary.ts"
   },
   "dependencies": {
     "@auth/core": "0.41.2",

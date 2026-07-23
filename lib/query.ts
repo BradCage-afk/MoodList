@@ -149,7 +149,7 @@ const TEXT_KEYWORDS: [RegExp, Prefs][] = [
   [/\bdanc\w+\b/, { contexts: ["dance", "party"], energy: "high" }],
   [/\b(drive|driving|road ?trip)\b/, { contexts: ["driving", "road-trip"] }],
   [/\bwedding\b/, { contexts: ["wedding", "romance"], valence: "positive" }],
-  [/\b(breakup|break[- ]up|heartbreak|heartbroken|ex)\b/, { contexts: ["heartbreak", "breakup"], valence: "negative" }],
+  [/\b(breakup|break[- ]up|heartbreak|heartbroken|ex)\b/, { contexts: ["heartbreak", "breakup"], valence: "negative", energy: "low" }],
   [/\b(rain|rainy|monsoon)\b/, { contexts: ["rain", "monsoon"], energy: "low" }],
   [/\b(gaming|game|videogame)\b/, { contexts: ["gaming"] }],
   [/\b(cook|cooking|dinner)\b/, { contexts: ["cooking", "chill"] }],
@@ -227,6 +227,16 @@ export function buildPrefs(text: string, tagIds: string[], instrumentalToggle: b
 
 const MAX_PER_ARTIST = 3;
 
+/** Normalized "same song" key: primary artist + title stripped of (...) [...] and " - ..." suffixes. */
+function versionKey(name: string, primaryArtist: string): string {
+  const base = name
+    .toLowerCase()
+    .replace(/\s*[([].*?[)\]]/g, "")
+    .replace(/\s+-\s+.*$/, "")
+    .trim();
+  return `${primaryArtist.toLowerCase()}|${base}`;
+}
+
 /** Score the index against prefs and return the top `size` tracks, artist-capped. */
 export async function queryIndex(prefs: QueryPrefs, size: number): Promise<RankedTrack[]> {
   const { rows } = await db().query(
@@ -258,10 +268,16 @@ export async function queryIndex(prefs: QueryPrefs, size: number): Promise<Ranke
   );
 
   const perArtist = new Map<string, number>();
+  const seenVersions = new Set<string>();
   const out: RankedTrack[] = [];
   for (const r of rows) {
     if (out.length >= size) break;
     const artists = (r.artists as { name: string }[]).map((a) => a.name);
+    // Re-releases of the same song (deluxe albums, singles vs. album cuts)
+    // exist as distinct track ids — keep only the highest-scored copy.
+    const vKey = versionKey(r.name, artists[0] ?? "?");
+    if (seenVersions.has(vKey)) continue;
+    seenVersions.add(vKey);
     const key = artists[0]?.toLowerCase() ?? "?";
     const seen = perArtist.get(key) ?? 0;
     if (seen >= MAX_PER_ARTIST) continue;

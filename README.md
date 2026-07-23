@@ -1,148 +1,171 @@
-# Moodlist — live mood-curated Spotify playlists
+# Moodlist — mood-curated Spotify playlists from a pre-built multilingual index
 
 **Live at [moodlist-app.vercel.app](https://moodlist-app.vercel.app)**
 
-Type how you feel, spin a vinyl to pick the playlist length, and get a
-live-curated playlist of real Spotify tracks — **ranked by what their lyrics
-actually say**, not by a pre-baked database. One click exports it to your
-Spotify account.
+Type how you feel, spin a vinyl to pick the playlist length, and instantly
+get a playlist of real Spotify tracks — Bollywood, Punjabi, Tamil, K-pop,
+Afrobeats, Latin, pure instrumentals, and more — matched on language, genre,
+energy, valence, and context. One click exports it to your Spotify account.
 
-![The Moodlist composer: vibe text, vinyl length dial, and 68 mood/activity/genre tags](docs/composer.png)
+"AI playlist from a prompt" is a commoditized idea. What this project
+actually solves is the two things those tools are consistently bad at:
+**genuine multilingual accuracy** and **instrumental music**, backed by an
+architecture that can say *how much* it trusts every tag it stores.
 
-## Why this is harder than it sounds
+## Two systems, deliberately decoupled
 
-Spotify **removed its audio-features and analysis endpoints** (the classic
-valence/energy/danceability API) for new apps. You can't ask Spotify what a
-song feels like anymore. Moodlist's answer: read the lyrics.
+**1. An offline indexing pipeline** (`scripts/indexer/`) builds a tagged
+catalog of ~15k tracks in Postgres — run locally, checkpointed, resumable,
+never deployed.
 
-**Everything is computed live, per request.** There is no track database, no
-offline index, no cached catalog — every playlist is searched, fetched,
-scored, and ranked in the seconds after you hit *Curate*, with progress
-streamed to the UI over Server-Sent Events.
-
-## The pipeline
+**2. A live web app** (Next.js on Vercel) answers queries with a single SQL
+lookup over that index. No Spotify search, no lyrics fetching, no LLM at
+request time — results are near-instant.
 
 ```mermaid
-flowchart LR
-    A["Tags + free text"] --> B["Query planner<br/>up to 26 parallel<br/>(query, offset) searches"]
-    B --> C["Candidate pool<br/>dedupe + junk filter<br/>~100 tracks"]
-    C --> D["Lyrics fetch<br/>Genius → lrclib fallback<br/>12-way concurrent"]
-    D --> E["Emotion scoring<br/>NRC lexicon · tf-idf<br/>cosine vs. target"]
-    E --> F["Ranking<br/>confidence blend<br/>+ artist diversity"]
-    F --> G["Export<br/>POST /me/playlists"]
+flowchart TB
+    subgraph offline ["OFFLINE — indexing pipeline (run once, resumable)"]
+        A["155 curated 'virtual playlist' queries<br/>across 20+ regional markets"] --> B["LLM tag normalization<br/>one call per query"]
+        B --> C["Track collection<br/>search fan-out, 10/request cap"]
+        C --> D["Rule-based confidence scoring<br/>agreement × coverage, zero LLM"]
+        D -->|"confidence ≥ 0.75"| E["tracks table<br/>(Postgres/Neon)"]
+        D -->|"below threshold"| F["Escalation: lyrics (Genius)<br/>+ LLM classification"]
+        F --> E
+    end
+    subgraph live ["LIVE — web app (per request)"]
+        G["Tags + free text"] --> H["Preference builder<br/>keywords + NRC emotion lexicon"]
+        H --> I["One SQL query<br/>weighted axis scoring"]
+        I --> J["Artist diversity + version dedupe"]
+        J --> K["Export<br/>POST /me/playlists"]
+    end
+    E -.-> I
 ```
 
-1. **Search fan-out.** Spotify caps `GET /search` at 10 results per request,
-   so breadth comes from parallelism: the literal text paginated 4 pages
-   deep, an `artist:"..."` field-filtered variant, the text crossed with
-   genre/mood seeds from your tags, plus seed-pair queries — up to 26
-   requests at once.
-2. **Pool building.** Results are deduped by track ID, compilation junk
-   (mashups, megamixes, DJ nonstops) is filtered out, and re-releases of the
-   same song collapse to one copy — *except* versions of a song you
-   literally searched for, which all stay.
-3. **Lyrics.** Each candidate's lyrics are found via the Genius API and
-   scraped server-side, with [lrclib.net](https://lrclib.net) as fallback.
-   Lyrics are used **internally only** for scoring — never displayed,
-   returned, or stored (no copyrighted text reproduction).
-4. **Emotion scoring.** Lyrics are scored against the bundled, offline
-   [NRC Emotion Lexicon](https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm)
-   into a 10-dimension emotion vector, weighted by **sublinear tf-idf
-   computed over that request's own lyric corpus** — so words that appear in
-   every song ("love", "baby") stop dominating. Your tags + text build a
-   target vector in the same space; tracks rank by cosine similarity.
-5. **Confidence.** Every score carries a confidence derived from lexicon hit
-   count × coverage. Thin evidence blends the score toward neutral — a song
-   with six matched words can't confidently outrank a real lyrical match.
-   Instrumental? No usable lyrics? The app says so instead of pretending.
-6. **Honest fallbacks.** If your input has no emotional signal at all
-   (an artist name, "hindi", genre-only tags), Moodlist doesn't fake a mood
-   target — it ranks by pure search relevance and skips lyric fetching
-   entirely. And anything you *literally asked for* (artist or song title in
-   your text) ranks ahead of mood scoring, so searching an instrumental
-   artist actually returns their catalog.
+## Why "virtual playlists"
 
-Every recommendation is explainable: click any result to see its top
-emotion dimensions, lyric confidence, and a one-line reason it was picked.
+The original plan — harvest tracks from Spotify's editorial playlists — is
+**impossible in 2026**: editorial playlists 404 for new apps (Nov 2024
+policy), and the March 2026 API migration made *every* third-party
+playlist's contents owner-only (metadata is all you get). Verified
+empirically before building.
 
-## Engineering war stories
+The replacement: a curated matrix of **155 search queries** ("hindi sad
+songs", "peaceful piano instrumental", "k-pop party hits", …) fanned out
+across 20+ regional markets (IN, KR, JP, BR, MX, NG, EG, …). Each query
+plays exactly the role a playlist name used to play:
 
-Things that broke because the platform moved underneath us, and how they
-were fixed:
+- The LLM normalizes each query into a structured tag object once (~155
+  calls total).
+- A track surfacing under multiple queries aggregates their signals — same
+  agreement math as multi-playlist membership.
+- Confidence per axis = `agreement × coverage`, combined with weights
+  (language 0.30, genre 0.25, valence 0.20, energy 0.15, context 0.10).
+- `≥ 0.75` overall → tags assigned rule-based, **zero LLM cost**. Below →
+  escalation: Genius lyrics (when they exist) + one LLM call with full
+  context. Lyrics are scored and **discarded — never stored, logged, or
+  displayed**.
+
+Every stored tag remembers whether it came from `aggregated` cross-query
+agreement or `llm_escalated` classification, and the UI shows the
+confidence on every track.
+
+## The live query
+
+Tag chips and free text merge into axis preferences three ways: an explicit
+tag→axis map, a keyword table (`"hindi"`, `"workout"`, `"monsoon"`…), and —
+for feeling words the tables don't cover ("missing someone, but hopeful") —
+the offline **NRC Emotion Lexicon** read of the text, mapped down to
+valence/energy. One weighted SQL query scores the whole index, then
+version-dedupe (re-releases collapse to the best copy) and an artist
+diversity cap shape the final list.
+
+Extras that came out of real use:
+
+- **History** — your last 15 unexported curations are snapshotted
+  server-side; restore, delete one, or clear all. Exporting a playlist
+  removes it from history (it lives in your Spotify account now).
+- **Instrumental-only toggle** — a first-class filter, not a keyword hack.
+- **Owner-only `/admin`** — login/curate/export activity, gated by Spotify
+  user id (404s for everyone else).
+
+## Engineering war stories (2026 Spotify API edition)
 
 | Problem | Fix |
 | --- | --- |
-| Spotify killed audio-features/analysis for new apps | Mood from lyrics: NRC emotion lexicon, bundled offline (no sentiment API at request time) |
-| `GET /search` hard-caps `limit=10` (400 above it) | Fan-out: many small parallel `(query, offset)` pages instead of one big one |
-| Search results silently **stopped including `popularity`** (2026) | Derive a 0–100 proxy from Spotify's own relevance rank (`offset + index`), keep the best rank across queries |
-| `POST /playlists/{id}/tracks` returns a bare 403 (Feb 2026 rename) | Use `POST /playlists/{id}/items` |
-| Spotify rejects `localhost` redirect URIs (2025 rule) | Use the loopback IP literal `http://127.0.0.1:3000` |
-| …but Next.js `NextRequest` **normalizes `127.0.0.1` to `localhost`**, corrupting the OAuth `redirect_uri` | Bypass next-auth's handler wrapper: call `@auth/core`'s `Auth()` directly with a plain `Request`, origin forced from `AUTH_URL` |
-| Genius pages 403 server-side fetches (Cloudflare) | Firefox-profile request headers + lrclib.net as a keyless fallback lyrics source |
+| Audio-features/analysis endpoints dead for new apps | Mood from index tags: query aggregation + confidence-gated LLM classification |
+| Editorial playlists 404; third-party playlist contents owner-only (Mar 2026) | "Virtual playlists": curated multi-market search-query matrix |
+| Artist `genres` field silently emptied; batch artists endpoint gone | Genre from query aggregation + LLM knowledge instead |
+| `GET /search` hard-caps `limit=10` | Fan-out pagination; offsets verified working past 490 |
+| Reading playlist items now requires a *user* token | One-time OAuth helper (`npm run index:auth`) stores a refresh token for the indexer |
+| Free-tier LLM (GLM 5.2) took ~6 min/call in reasoning mode | Benchmarked NIM catalog; llama-3.1-8b-instruct does the same classification in 0.7s |
+| Long runs died silently (hung fetch drains Node's event loop → exit 0) | Hard timeouts on every network call + idempotent, checkpointed steps — rerun until done |
+| Spotify rejects `localhost` redirect URIs; Next.js normalizes `127.0.0.1` → `localhost` | Loopback-IP literal + calling `@auth/core`'s `Auth()` directly with a plain `Request` |
 
 ## Stack
 
 Next.js (App Router) · TypeScript · Tailwind CSS 4 · Auth.js v5 (Spotify
-OAuth: `playlist-modify-public playlist-modify-private`) · Framer Motion ·
-Server-Sent Events · deployed on Vercel.
+OAuth) · Framer Motion · Postgres (Neon) · NVIDIA NIM (llama-3.1-8b, free
+tier) for offline tagging · Genius + lrclib for escalation lyrics ·
+deployed on Vercel.
 
 ## Run it locally
 
-1. Create a Spotify app at <https://developer.spotify.com/dashboard> and add
-   the redirect URI `http://127.0.0.1:3000/api/auth/callback/spotify`
-   (loopback IP — Spotify no longer accepts `localhost`).
-2. Create a Genius API client at <https://genius.com/api-clients> and copy
-   its **Client Access Token**.
-3. `cp .env.local.example .env.local` and fill in the values
-   (`openssl rand -base64 32` for `NEXTAUTH_SECRET`).
+1. Spotify app at <https://developer.spotify.com/dashboard> with redirect
+   URI `http://127.0.0.1:3000/api/auth/callback/spotify` (loopback IP —
+   `localhost` is rejected).
+2. A free [Neon](https://neon.tech) Postgres database.
+3. `cp .env.local.example .env.local` and fill it in.
 4. ```bash
    npm install
-   npm run dev
+   npm run dev        # → http://127.0.0.1:3000
    ```
-5. Open <http://127.0.0.1:3000> (not `localhost` — the OAuth callback must
-   match), connect Spotify, describe a vibe, curate, export.
 
-## Deploying to Vercel
+### Building the index (one-time, ~2-3 hours, free)
 
-- Set `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `NEXTAUTH_SECRET`,
-  `GENIUS_ACCESS_TOKEN` in the Vercel project's environment variables.
-  Do **not** set `NEXTAUTH_URL`/`AUTH_URL` — the deployment host is trusted
-  and used as-is.
-- In the Spotify Developer dashboard, add the production redirect URI:
-  `https://<your-app>.vercel.app/api/auth/callback/spotify`.
+```bash
+npm run index:auth       # one-time Spotify user grant (browser click)
+npm run index:source     # register the 155-query source matrix
+npm run index:tag        # LLM-normalize each query's tags…
+npm run index:tag -- --review   # …review the map, then:
+npm run index:tag -- --approve
+npm run index:collect    # search fan-out → tracks (checkpointed per source)
+npm run index:score      # rule-based confidence; splits auto vs escalate
+npm run index:escalate   # lyrics + LLM for the low-confidence remainder
+npm run index:summary    # distributions, auto/escalated split, failures
+```
+
+Every step is idempotent and resumable — kill and rerun freely.
 
 ## Key files
 
 | Path | What it is |
 | --- | --- |
-| `lib/curate.ts` | The live pipeline: search plan → pool → lyrics → tf-idf scoring → confidence ranking |
-| `lib/nrc.ts` | NRC lexicon scoring: tokenization, tf-idf, emotion vectors, cosine similarity |
-| `data/nrc-lexicon.json` | Bundled offline NRC word→emotions lexicon (6,468 words) |
-| `data/tags.ts` | 68-tag taxonomy: search seeds + target NRC vectors per tag |
-| `lib/spotify.ts` / `lib/genius.ts` | Spotify search/playlist + Genius/lrclib lyrics clients |
-| `app/api/curate/route.ts` | SSE endpoint streaming pipeline progress |
-| `app/api/export/route.ts` | Creates the playlist and adds items |
+| `scripts/indexer/queries.ts` | The virtual-playlist matrix: 155 queries × markets × authored tag hints |
+| `scripts/indexer/04-score.ts` | The confidence math: per-axis agreement × coverage, weighted overall |
+| `scripts/indexer/05-escalate.ts` | Lyrics + LLM escalation for ambiguous tracks only |
+| `lib/query.ts` | Live matching: tag/keyword/NRC preference builder + weighted SQL scoring |
+| `app/api/curate/route.ts` | The instant curate endpoint (DB lookup + history snapshot) |
+| `app/api/history/route.ts` | Snapshot restore/delete/clear (cap 15, unexported only) |
 | `app/api/auth/[...nextauth]/route.ts` | The `@auth/core` direct-call workaround for the loopback-origin bug |
 | `components/SizeDial.tsx` | The spinnable vinyl: rotational drag, wheel, keyboard |
 
 ## Honest limitations
 
-- **English-only emotion lexicon.** Non-English lyrics get no emotional
-  signal and fall back to relevance ranking (the NRC lexicon does ship
-  official translations — a future upgrade path).
-- **Word-level scoring is irony-blind.** "Pumped Up Kicks" reads as upbeat
-  words to a lexicon. The confidence system bounds the damage; it can't
-  eliminate it.
-- **Popularity is a proxy.** Spotify no longer exposes track popularity in
-  search, so ranking position stands in for it.
-- A full mood curation takes ~20–40s (100 live lyric fetches); pure
-  relevance queries return in under a second.
+- **Catalog-bounded.** Results come from the ~15k-track index; a vibe far
+  outside it gets the nearest neighbors, not a live search.
+- **Tags are coarse.** Five axes + context tags, not a full embedding
+  space. The win is that they're *trustworthy* (confidence-gated) and
+  queryable in milliseconds.
+- **Small-model escalation.** llama-3.1-8b knows mainstream music well;
+  deep-catalog obscurities can still get generic tags.
+- The index reflects when it was built; re-running the pipeline refreshes
+  it (idempotent upserts).
 
 ## Attribution
 
 Emotion data: [NRC Word-Emotion Association Lexicon](https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm)
-(Saif M. Mohammad, National Research Council Canada) — used non-commercially
-with attribution. Lyrics lookups: Genius API and lrclib.net; lyrics are
-scored in-memory and never reproduced.
+(Saif M. Mohammad, NRC Canada), used non-commercially with attribution.
+Escalation lyrics via Genius API and lrclib.net — scored in-memory, never
+reproduced. Tagging inference via NVIDIA NIM.
 
 Not affiliated with, endorsed by, or sponsored by Spotify.
