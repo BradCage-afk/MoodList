@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { AXES, TAGS } from "@/data/tags";
-import { blendGlows, unwrapHue } from "@/lib/moodGlow";
 import type { RankedTrack } from "@/lib/query";
 import { TagChip } from "@/components/TagChip";
 import { LoadingVinyl } from "@/components/LoadingVinyl";
@@ -20,11 +20,12 @@ const SUGGESTIONS = [
   "quiet focus, no words",
 ];
 
-const SECTION_TINT: Record<string, string> = {
-  mood: "bg-cat-mood/[0.04]",
-  activity: "bg-cat-activity/[0.04]",
-  genre: "bg-cat-genre/[0.04]",
-};
+interface Preview {
+  count: number;
+  idle: boolean;
+  covers: string[];
+  suggestions: string[];
+}
 
 export function MoodComposer() {
   const [text, setText] = useState("");
@@ -40,26 +41,31 @@ export function MoodComposer() {
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = text.trim().length > 0 || selected.size > 0 || instrumentalOnly;
-  const prevHue = useRef(280);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const previewAbort = useRef<AbortController | null>(null);
 
-  // Mood-reactive background: blend selected mood tags' hues (circular
-  // mean) into CSS vars; body::after transitions them like ambient light.
+  // Live preview: as the selection changes, show how many indexed tracks
+  // match this exact mood, a few of their covers, and what pairs well.
+  // Debounced + aborting so fast toggling never queues stale responses.
   useEffect(() => {
-    const root = document.documentElement;
-    const glows = [...selected]
-      .map((id) => TAGS.find((t) => t.id === id)?.glow)
-      .filter((g): g is NonNullable<typeof g> => !!g);
-    const blend = blendGlows(glows);
-    if (!blend) {
-      root.style.setProperty("--glow-a", "0");
-      return;
-    }
-    const hue = unwrapHue(prevHue.current, blend.h);
-    prevHue.current = hue;
-    root.style.setProperty("--glow-h", String(Math.round(hue)));
-    root.style.setProperty("--glow-s", `${Math.round(blend.s)}%`);
-    root.style.setProperty("--glow-a", "0.16");
-  }, [selected]);
+    const timer = setTimeout(async () => {
+      previewAbort.current?.abort();
+      const controller = new AbortController();
+      previewAbort.current = controller;
+      try {
+        const res = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, tagIds: [...selected], instrumentalOnly }),
+          signal: controller.signal,
+        });
+        if (res.ok) setPreview(await res.json());
+      } catch {
+        // aborted or offline — keep the previous preview
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [text, selected, instrumentalOnly]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -200,6 +206,56 @@ export function MoodComposer() {
         </div>
       )}
 
+      {/* Live match preview: the content reacts, not the decor. */}
+      <div className="mt-4 flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-line/60 bg-bg-raised/40 px-4 py-2.5">
+        {preview ? (
+          <>
+            <div className="flex -space-x-2.5 shrink-0">
+              {preview.covers.slice(0, 5).map((src, i) => (
+                <Image
+                  key={`${src}-${i}`}
+                  src={src}
+                  alt=""
+                  width={34}
+                  height={34}
+                  unoptimized
+                  className="rounded-md border-2 border-bg shadow-md"
+                  style={{ zIndex: 5 - i }}
+                />
+              ))}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-ink tabular-nums">
+                {preview.idle
+                  ? `${preview.count.toLocaleString()} tracks ready to match your mood`
+                  : `~${preview.count.toLocaleString()} tracks match this exact mood`}
+              </p>
+              {preview.suggestions.length > 0 && (
+                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-dim">
+                  pairs well with:
+                  {preview.suggestions.map((id) => {
+                    const tag = TAGS.find((t) => t.id === id);
+                    if (!tag) return null;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggle(id)}
+                        className="cursor-pointer rounded-full border border-line px-2 py-0.5 text-xs text-ink-dim hover:border-accent/60 hover:text-ink transition-colors"
+                      >
+                        + {tag.label}
+                      </button>
+                    );
+                  })}
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-ink-dim/60">Warming up the catalog…</p>
+        )}
+      </div>
+
       {error && (
         <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
           {error}
@@ -261,8 +317,8 @@ export function MoodComposer() {
 
       <div className="mt-8 flex flex-col gap-8">
         {AXES.map(({ axis, title }) => (
-          <div key={axis} className={`rounded-2xl p-5 ${SECTION_TINT[axis]}`}>
-            <p className="mb-3.5 text-sm font-medium text-ink">{title}</p>
+          <div key={axis} className="rounded-2xl bg-bg-raised/30 p-5">
+            <p className="mb-3.5 text-sm font-medium text-ink-dim">{title}</p>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
               {TAGS.filter((t) => t.axis === axis).map((tag) => (
                 <TagChip

@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0a0f;
-  --bg-raised: #12121a;
-  --line: #26263a;
-  --ink: #ecebf3;
-  --ink-dim: #8b8aa0;
-  --accent: #a855f7;
-  --accent-2: #ec4899;
-  --accent-3: #f59e0b;
+  --bg: #161210;
+  --bg-raised: #201a16;
+  --line: #372d26;
+  --ink: #f3ede3;
+  --ink-dim: #a89c8c;
+  --accent: #e89b4b;
+  --accent-2: #d96f4e;
+  --accent-3: #caa96b;
 }
 
 @theme inline {
@@ -20,32 +20,8 @@
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
   --color-accent-3: var(--accent-3);
-  --color-cat-mood: #a855f7;
-  --color-cat-activity: #38bdf8;
-  --color-cat-genre: #34d399;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-/*
- * Mood-reactive glow state. Registered with @property so the values
- * themselves interpolate — that's what lets plain CSS transitions animate
- * a gradient (gradients aren't transitionable, custom properties are).
- */
-@property --glow-h {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 280;
-}
-@property --glow-s {
-  syntax: "<percentage>";
-  inherits: true;
-  initial-value: 50%;
-}
-@property --glow-a {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
 }
 
 html {
@@ -71,34 +47,10 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(168, 85, 247, 0.14), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(236, 72, 153, 0.08), transparent);
-}
-
-/*
- * The mood glow: one centered radial wash on its own fixed layer, above the
- * brand washes but below content. The color fades to alpha-0 of ITSELF (not
- * to a different surface color), so the outer edge is exactly the page
- * background with no ring artifact; the 120vmax radius keeps the falloff
- * far beyond the viewport. Slow transition = ambient lighting, not a flash.
- */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(
-    circle 120vmax at 50% 28%,
-    hsl(calc(var(--glow-h) * 1deg) var(--glow-s) 58% / calc(var(--glow-a) * 1)) 0%,
-    hsl(calc(var(--glow-h) * 1deg) var(--glow-s) 58% / 0) 62%
-  );
-  transition:
-    --glow-h 1.3s ease,
-    --glow-s 1.3s ease,
-    --glow-a 1.3s ease;
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232, 155, 75, 0.1), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(217, 111, 78, 0.06), transparent);
 }
 
 ::selection {
-  background: rgba(168, 85, 247, 0.4);
+  background: rgba(232, 155, 75, 0.35);
 }

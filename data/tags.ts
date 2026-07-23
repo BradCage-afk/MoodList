@@ -370,7 +370,7 @@ export const TAGS: Tag[] = [
 export const TAGS_BY_ID = new Map(TAGS.map((t) => [t.id, t]));
 
 export const AXES: { axis: TagAxis; title: string }[] = [
-  { axis: "mood", title: "How are you feeling?" },
-  { axis: "activity", title: "What are you doing?" },
-  { axis: "genre", title: "Any genre preference?" },
+  { axis: "mood", title: "Mood" },
+  { axis: "activity", title: "Activity" },
+  { axis: "genre", title: "Genre" },
 ];
