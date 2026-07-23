@@ -4,6 +4,12 @@ import type { JWT } from "next-auth/jwt";
 
 const SPOTIFY_SCOPES = "playlist-modify-public playlist-modify-private";
 
+function logActivity(userId: string, displayName: string | null, action: string) {
+  import("@/lib/activity")
+    .then(({ logActivity }) => logActivity(userId, displayName, action))
+    .catch(() => {});
+}
+
 async function refreshSpotifyToken(token: JWT): Promise<JWT> {
   try {
     const res = await fetch("https://accounts.spotify.com/api/token", {
@@ -56,14 +62,19 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
       // Initial sign-in: persist Spotify tokens on the JWT
       if (account) {
+        const spotifyId = (profile?.id as string | undefined) ?? token.sub;
+        // Activity log (admin page reads this). Fire-and-forget: login must
+        // never fail because the DB hiccuped.
+        logActivity(spotifyId ?? "unknown", (profile?.display_name as string | undefined) ?? null, "login");
         return {
           ...token,
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
           expiresAt: account.expires_at,
+          spotifyId,
         };
       }
       // Still valid (60s safety margin)
@@ -73,6 +84,7 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }) {
       session.accessToken = token.accessToken as string | undefined;
       session.error = token.error as string | undefined;
+      session.spotifyId = token.spotifyId as string | undefined;
       return session;
     },
   },

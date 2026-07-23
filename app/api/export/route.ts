@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
 import { addTracksToPlaylist, createPlaylist } from "@/lib/spotify";
+import { logActivity } from "@/lib/activity";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +14,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Not authenticated with Spotify" }, { status: 401 });
   }
 
-  let body: { uris?: string[]; summary?: string };
+  let body: { uris?: string[]; summary?: string; historyId?: number };
   try {
     body = await req.json();
   } catch {
@@ -31,9 +33,27 @@ export async function POST(req: Request) {
     const playlist = await createPlaylist(
       session.accessToken,
       `Mood: ${summary}`,
-      "Curated live from your vibe — lyrics-scored with the NRC Emotion Lexicon."
+      "Curated from Moodlist's pre-indexed multilingual mood catalog."
     );
     await addTracksToPlaylist(session.accessToken, playlist.id, uris);
+
+    // Exported snapshots leave history immediately — the cap only ever
+    // applies to unexported entries.
+    if (session.spotifyId && typeof body.historyId === "number") {
+      await db()
+        .query(`DELETE FROM history WHERE user_id = $1 AND id = $2`, [
+          session.spotifyId,
+          body.historyId,
+        ])
+        .catch(() => {});
+    }
+    if (session.spotifyId) {
+      logActivity(session.spotifyId, session.user?.name ?? null, "export", {
+        summary,
+        tracks: uris.length,
+      });
+    }
+
     return Response.json({ url: playlist.url });
   } catch (err) {
     return Response.json(

@@ -1,0 +1,155 @@
+[tagged] (activity) "bollywood workout songs" → hindi | bollywood | e:high | v:positive | vocal | workout
+[tagged] (activity) "calm sleep songs" → - | - | e:low | v:positive | vocal | sleep
+[tagged] (activity) "dinner party music" → english | pop | e:medium | v:neutral | vocal | cooking+chill
+[tagged] (activity) "gaming music" → - | electronic | e:high | v:neutral | vocal | gaming
+[tagged] (activity) "gym workout songs" → english | pop | e:high | v:positive | vocal | workout
+[tagged] (activity) "road trip songs" → english | pop | e:high | v:positive | vocal | road-trip+driving
+[tagged] (activity) "running songs" → english | pop | e:high | v:positive | vocal | running+workout
+[tagged] (activity) "songs to dance to" → english | pop | e:high | v:positive | vocal | dance+party
+[tagged] (activity) "wedding songs" → english | pop | e:medium | v:positive | vocal | wedding+romance
+[tagged] (era) "2000s hits" → english | pop | e:medium | v:positive | vocal | nostalgia
+[tagged] (era) "2010s hits" → english | pop | e:medium | v:positive | vocal | nostalgia
+[tagged] (era) "80s hits" → english | pop | e:medium | v:positive | vocal | nostalgia
+[tagged] (era) "90s hits" → english | pop | e:medium | v:positive | vocal | nostalgia
+[tagged] (era) "bollywood 90s songs" → hindi | bollywood | e:medium | v:positive | vocal | nostalgia
+[tagged] (genre) "anime opening songs" → japanese | j-pop | e:high | v:positive | vocal | gaming
+[tagged] (genre) "blues songs" → english | blues | e:medium | v:negative | vocal | -
+[tagged] (genre) "classic rock songs" → english | rock | e:medium | v:neutral | vocal | nostalgia
+[tagged] (genre) "country hits" → english | country | e:medium | v:positive | vocal | road-trip+driving+nostalgia
+[tagged] (genre) "disco hits" → english | disco | e:high | v:positive | vocal | party+dance+nostalgia
+[tagged] (genre) "edm bangers" → - | electronic | e:high | v:positive | vocal | party+dance
+[tagged] (genre) "folk acoustic songs" → english | folk | e:low | v:neutral | vocal | chill
+[tagged] (genre) "funk songs" → english | funk | e:high | v:neutral | vocal | -
+[tagged] (genre) "gospel worship songs" → english | gospel | e:high | v:positive | vocal | devotional
+[tagged] (genre) "hip hop classics" → english | hip-hop | e:medium | v:neutral | vocal | nostalgia
+[tagged] (genre) "house music" → - | house | e:high | v:- | inst:- | dance
+[tagged] (genre) "indie songs" → english | indie | e:- | v:- | vocal | -
+[tagged] (genre) "k-drama ost" → korean | soundtrack | e:low | v:neutral | vocal | romance
+[tagged] (genre) "metal songs" → english | metal | e:high | v:- | vocal | -
+[tagged] (genre) "phonk" → - | phonk | e:high | v:- | inst:- | gaming+workout
+[tagged] (genre) "pop hits" → english | pop | e:medium | v:positive | vocal | -
+[tagged] (genre) "punjabi bhangra songs" → punjabi | punjabi-pop | e:high | v:positive | vocal | party+dance+festival
+[tagged] (genre) "rap hits" → english | hip-hop | e:high | v:positive | vocal | party+dance
+[tagged] (genre) "reggae songs" → english | reggae | e:medium | v:positive | vocal | chill
+[tagged] (genre) "reggaeton hits" → spanish | reggaeton | e:high | v:positive | vocal | party+dance
+[tagged] (genre) "rnb songs" → english | r&b | e:medium | v:positive | vocal | -
+[tagged] (genre) "rock anthems" → english | rock | e:high | v:positive | vocal | -
+[tagged] (genre) "smooth jazz" → - | jazz | e:low | v:neutral | inst:- | chill
+[tagged] (genre) "sufi songs" → hindi | bollywood | e:medium | v:positive | vocal | devotional
+[tagged] (genre) "tamil kuthu songs" → tamil | south-indian | e:high | v:positive | vocal | party+dance
+[tagged] (genre) "techno" → - | techno | e:high | v:- | inst:- | dance
+[tagged] (instrumental) "ambient music" → - | ambient | e:low | v:neutral | INSTRUMENTAL | sleep+meditation
+[tagged] (instrumental) "classical music" → - | classical | e:- | v:- | INSTRUMENTAL | -
+[tagged] (instrumental) "epic orchestral music" → - | soundtrack | e:high | v:neutral | INSTRUMENTAL | -
+[tagged] (instrumental) "instrumental study music" → - | - | e:low | v:neutral | INSTRUMENTAL | study+focus
+[tagged] (instrumental) "jazz instrumental" → - | jazz | e:low | v:- | INSTRUMENTAL | chill+cooking
+[tagged] (instrumental) "lofi beats" → - | lofi | e:low | v:neutral | INSTRUMENTAL | study+chill
+[tagged] (instrumental) "meditation music" → - | - | e:low | v:neutral | INSTRUMENTAL | meditation+sleep
+[tagged] (instrumental) "movie soundtrack instrumental" → - | soundtrack | e:- | v:- | INSTRUMENTAL | -
+[tagged] (instrumental) "peaceful piano instrumental" → - | classical | e:low | v:neutral | INSTRUMENTAL | study+sleep+chill
+[tagged] (instrumental) "video game music" → - | soundtrack | e:- | v:- | INSTRUMENTAL | gaming
+[tagged] (language) "afrobeats party hits" → - | afrobeats | e:high | v:positive | vocal | party+dance
+[tagged] (language) "afrobeats romantic songs" → - | afrobeats | e:- | v:positive | vocal | romance
+[tagged] (language) "afrobeats sad songs" → - | afrobeats | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "amapiano party hits" → - | amapiano | e:high | v:positive | vocal | party+dance
+[tagged] (language) "amapiano romantic songs" → - | amapiano | e:- | v:positive | vocal | romance
+[tagged] (language) "amapiano sad songs" → - | amapiano | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "arabic party hits" → arabic | arabic-pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "arabic romantic songs" → arabic | arabic-pop | e:medium | v:positive | vocal | romance
+[tagged] (language) "arabic sad songs" → arabic | arabic-pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "best afrobeats songs" → - | afrobeats | e:high | v:positive | vocal | party+dance+festival
+[tagged] (language) "best amapiano songs" → - | amapiano | e:- | v:- | vocal | -
+[tagged] (language) "best arabic songs" → arabic | arabic-pop | e:- | v:- | vocal | -
+[collected] (language) "best bollywood songs" → hindi | bollywood | e:- | v:- | vocal | -
+[tagged] (language) "best brazilian songs" → portuguese | latin | e:- | v:- | vocal | -
+[tagged] (language) "best c-pop songs" → mandarin | c-pop | e:- | v:- | vocal | -
+[tagged] (language) "best french songs" → french | pop | e:- | v:- | vocal | -
+[tagged] (language) "best german songs" → german | pop | e:- | v:- | vocal | -
+[collected] (language) "best hindi songs" → hindi | bollywood | e:- | v:- | vocal | -
+[tagged] (language) "best indonesian songs" → indonesian | pop | e:- | v:- | vocal | -
+[tagged] (language) "best italian songs" → italian | pop | e:- | v:- | vocal | -
+[tagged] (language) "best j-pop songs" → japanese | j-pop | e:- | v:- | vocal | -
+[tagged] (language) "best k-pop songs" → korean | k-pop | e:- | v:- | vocal | -
+[tagged] (language) "best latin songs" → spanish | latin | e:- | v:- | vocal | -
+[tagged] (language) "best opm songs" → filipino | pop | e:- | v:- | vocal | -
+[collected] (language) "best punjabi songs" → punjabi | punjabi-pop | e:- | v:- | vocal | -
+[tagged] (language) "best spanish songs" → spanish | latin | e:- | v:- | vocal | -
+[tagged] (language) "best tamil songs" → tamil | south-indian | e:- | v:- | vocal | -
+[tagged] (language) "best telugu songs" → telugu | south-indian | e:- | v:- | vocal | -
+[tagged] (language) "best thai songs" → thai | pop | e:- | v:- | vocal | -
+[tagged] (language) "best turkish songs" → turkish | pop | e:- | v:- | vocal | -
+[tagged] (language) "best vietnamese songs" → vietnamese | pop | e:- | v:- | vocal | -
+[collected] (language) "bollywood party hits" → hindi | bollywood | e:high | v:positive | vocal | party+dance
+[collected] (language) "bollywood romantic songs" → hindi | bollywood | e:medium | v:positive | vocal | romance
+[collected] (language) "bollywood sad songs" → hindi | bollywood | e:low | v:negative | vocal | heartbreak+breakup
+[tagged] (language) "brazilian party hits" → portuguese | latin | e:high | v:positive | vocal | party+dance
+[tagged] (language) "brazilian romantic songs" → portuguese | latin | e:medium | v:positive | vocal | romance
+[tagged] (language) "brazilian sad songs" → portuguese | latin | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "c-pop party hits" → mandarin | c-pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "c-pop romantic songs" → mandarin | c-pop | e:- | v:positive | vocal | romance
+[tagged] (language) "c-pop sad songs" → mandarin | c-pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "french party hits" → french | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "french romantic songs" → french | pop | e:medium | v:positive | vocal | romance
+[tagged] (language) "french sad songs" → french | pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "german party hits" → german | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "german romantic songs" → german | pop | e:medium | v:positive | vocal | romance
+[tagged] (language) "german sad songs" → german | pop | e:low | v:negative | vocal | heartbreak
+[collected] (language) "hindi party hits" → hindi | bollywood | e:high | v:positive | vocal | party+dance
+[collected] (language) "hindi romantic songs" → hindi | bollywood | e:medium | v:positive | vocal | romance
+[collected] (language) "hindi sad songs" → hindi | bollywood | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "indonesian party hits" → indonesian | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "indonesian romantic songs" → indonesian | pop | e:medium | v:positive | vocal | romance
+[tagged] (language) "indonesian sad songs" → indonesian | pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "italian party hits" → italian | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "italian romantic songs" → italian | pop | e:- | v:positive | vocal | romance
+[tagged] (language) "italian sad songs" → italian | pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "j-pop party hits" → japanese | j-pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "j-pop romantic songs" → japanese | j-pop | e:medium | v:positive | vocal | romance
+[tagged] (language) "j-pop sad songs" → japanese | j-pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "k-pop party hits" → korean | k-pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "k-pop romantic songs" → korean | k-pop | e:- | v:positive | vocal | romance
+[tagged] (language) "k-pop sad songs" → korean | k-pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "latin party hits" → spanish | latin | e:high | v:positive | vocal | party+dance
+[tagged] (language) "latin romantic songs" → spanish | latin | e:- | v:positive | vocal | romance
+[tagged] (language) "latin sad songs" → spanish | latin | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "opm party hits" → filipino | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "opm romantic songs" → filipino | pop | e:medium | v:positive | vocal | romance
+[tagged] (language) "opm sad songs" → filipino | pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "punjabi party hits" → punjabi | punjabi-pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "punjabi romantic songs" → punjabi | punjabi-pop | e:medium | v:positive | vocal | romance
+[collected] (language) "punjabi sad songs" → punjabi | punjabi-pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "spanish party hits" → spanish | latin | e:high | v:positive | vocal | party+dance
+[tagged] (language) "spanish romantic songs" → spanish | latin | e:- | v:positive | vocal | romance
+[tagged] (language) "spanish sad songs" → spanish | latin | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "tamil party hits" → tamil | south-indian | e:high | v:positive | vocal | party+dance
+[tagged] (language) "tamil romantic songs" → tamil | south-indian | e:medium | v:positive | vocal | romance
+[tagged] (language) "tamil sad songs" → tamil | south-indian | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "telugu party hits" → telugu | south-indian | e:high | v:positive | vocal | party+dance
+[tagged] (language) "telugu romantic songs" → telugu | south-indian | e:- | v:positive | vocal | romance
+[tagged] (language) "telugu sad songs" → telugu | south-indian | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "thai party hits" → thai | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "thai romantic songs" → thai | pop | e:- | v:positive | vocal | romance
+[tagged] (language) "thai sad songs" → thai | pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "turkish party hits" → turkish | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "turkish romantic songs" → turkish | pop | e:- | v:positive | vocal | romance
+[tagged] (language) "turkish sad songs" → turkish | pop | e:low | v:negative | vocal | heartbreak
+[tagged] (language) "vietnamese party hits" → vietnamese | pop | e:high | v:positive | vocal | party+dance
+[tagged] (language) "vietnamese romantic songs" → vietnamese | pop | e:medium | v:positive | vocal | romance
+[tagged] (language) "vietnamese sad songs" → vietnamese | pop | e:low | v:negative | vocal | heartbreak
+[tagged] (mood) "angry songs" → english | rock | e:high | v:negative | vocal | motivation
+[tagged] (mood) "chill vibes" → english | - | e:low | v:neutral | vocal | chill
+[tagged] (mood) "christmas songs" → english | pop | e:medium | v:positive | vocal | winter+festival
+[tagged] (mood) "feel good hits" → english | pop | e:high | v:positive | vocal | party+dance+festival
+[tagged] (mood) "happy songs" → english | pop | e:high | v:positive | vocal | party+dance+romance
+[tagged] (mood) "heartbreak songs" → english | pop | e:low | v:negative | vocal | breakup+heartbreak
+[tagged] (mood) "hindi devotional songs" → hindi | bollywood | e:low | v:positive | vocal | devotional
+[tagged] (mood) "hype songs" → english | hip-hop | e:high | v:positive | vocal | motivation+workout
+[tagged] (mood) "love songs" → english | pop | e:medium | v:positive | vocal | romance
+[tagged] (mood) "monsoon songs hindi" → hindi | bollywood | e:medium | v:positive | vocal | romance
+[tagged] (mood) "motivational songs" → english | pop | e:high | v:positive | vocal | motivation
+[tagged] (mood) "nostalgic hits" → english | pop | e:medium | v:positive | vocal | nostalgia+romance
+[tagged] (mood) "party anthems" → english | pop | e:high | v:positive | vocal | party+dance
+[tagged] (mood) "rainy day songs" → english | folk | e:low | v:neutral | vocal | rain+chill
+[tagged] (mood) "sad songs" → english | blues | e:low | v:negative | vocal | heartbreak
+[tagged] (mood) "songs for crying" → english | blues | e:low | v:negative | vocal | heartbreak
+[tagged] (mood) "summer hits" → english | pop | e:high | v:positive | vocal | summer

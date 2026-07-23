@@ -1,46 +1,31 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { AXES, TAGS } from "@/data/tags";
-import type { CuratedTrack, ProgressEvent } from "@/lib/curate";
+import type { RankedTrack } from "@/lib/query";
 import { TagChip } from "@/components/TagChip";
 import { LoadingVinyl } from "@/components/LoadingVinyl";
 import { ResultsList } from "@/components/ResultsList";
 import { SizeDial } from "@/components/SizeDial";
+import { HistoryPanel } from "@/components/HistoryPanel";
 
 type Phase = "compose" | "loading" | "results";
-
-function stageToText(e: ProgressEvent | null): string {
-  if (!e) return "Warming up…";
-  switch (e.stage) {
-    case "searching":
-      return `Searching the catalog (${e.queries} queries)…`;
-    case "pool":
-      return `Found ${e.candidates} candidates…`;
-    case "lyrics":
-      return `Reading lyrics — ${e.done} of ${e.total} tracks…`;
-    case "ranking":
-      return "Matching your vibe…";
-    case "done":
-      return "Almost there…";
-    default:
-      return "Working…";
-  }
-}
 
 export function MoodComposer() {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [size, setSize] = useState(24);
+  const [instrumentalOnly, setInstrumentalOnly] = useState(false);
   const [phase, setPhase] = useState<Phase>("compose");
-  const [progress, setProgress] = useState<ProgressEvent | null>(null);
-  const [tracks, setTracks] = useState<CuratedTrack[]>([]);
+  const [tracks, setTracks] = useState<RankedTrack[]>([]);
   const [summary, setSummary] = useState("");
+  const [historyId, setHistoryId] = useState<number | null>(null);
+  const [fromHistory, setFromHistory] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
-  const canSubmit = text.trim().length > 0 || selected.size > 0;
+  const canSubmit = text.trim().length > 0 || selected.size > 0 || instrumentalOnly;
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -52,77 +37,71 @@ export function MoodComposer() {
   }
 
   function reset() {
-    abortRef.current?.abort();
     setPhase("compose");
-    setProgress(null);
     setError(null);
+    setFromHistory(false);
   }
 
   async function submit() {
     if (!canSubmit) return;
     setError(null);
     setPhase("loading");
-    setProgress(null);
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
     try {
       const res = await fetch("/api/curate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, tagIds: [...selected], size }),
-        signal: controller.signal,
+        body: JSON.stringify({ text, tagIds: [...selected], size, instrumentalOnly }),
       });
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? `Request failed (${res.status})`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
+      if (!data.tracks?.length) {
+        throw new Error("No matches in the index for that vibe — try different tags or words.");
       }
-
-      // Parse the SSE stream: events arrive as "data: {json}\n\n"
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let finished = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
-        for (const raw of events) {
-          const line = raw.trim();
-          if (!line.startsWith("data:")) continue;
-          const event: ProgressEvent = JSON.parse(line.slice(5).trim());
-          if (event.stage === "error") throw new Error(event.message);
-          if (event.stage === "done") {
-            setTracks(event.tracks);
-            setSummary(event.summary);
-            finished = true;
-          } else {
-            setProgress(event);
-          }
-        }
-      }
-
-      if (!finished) throw new Error("The stream ended early — please try again.");
+      setTracks(data.tracks);
+      setSummary(data.summary);
+      setHistoryId(data.historyId ?? null);
+      setFromHistory(false);
       setPhase("results");
     } catch (err) {
-      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Something went wrong");
       setPhase("compose");
     }
   }
 
+  async function restoreFromHistory(id: number) {
+    setHistoryOpen(false);
+    setError(null);
+    setPhase("loading");
+    try {
+      const res = await fetch(`/api/history?id=${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Couldn't load that snapshot");
+      setTracks(data.tracks);
+      setSummary(data.summary ?? data.queryText ?? "From history");
+      setHistoryId(data.id);
+      setFromHistory(true);
+      setPhase("results");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't load that snapshot");
+      setPhase("compose");
+    }
+  }
+
   if (phase === "loading") {
-    return <LoadingVinyl stageText={stageToText(progress)} />;
+    return <LoadingVinyl stageText="Matching your vibe…" />;
   }
 
   if (phase === "results") {
     return (
       <div className="mt-10 w-full flex justify-center">
-        <ResultsList tracks={tracks} summary={summary} onReset={reset} />
+        <ResultsList
+          tracks={tracks}
+          summary={summary}
+          historyId={historyId}
+          fromHistory={fromHistory}
+          onReset={reset}
+          onExported={() => setHistoryId(null)}
+        />
       </div>
     );
   }
@@ -188,6 +167,47 @@ export function MoodComposer() {
         </div>
         <SizeDial value={size} onChange={setSize} />
       </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={instrumentalOnly}
+          onClick={() => setInstrumentalOnly((v) => !v)}
+          className={`flex cursor-pointer items-center gap-2.5 rounded-full border px-4 py-2 text-sm transition-colors ${
+            instrumentalOnly
+              ? "border-accent/60 bg-accent/15 text-ink"
+              : "border-line bg-bg-raised/50 text-ink-dim hover:text-ink"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-7 rounded-full p-0.5 transition-colors ${
+              instrumentalOnly ? "bg-accent" : "bg-line"
+            }`}
+          >
+            <span
+              className={`block h-3 w-3 rounded-full bg-white transition-transform ${
+                instrumentalOnly ? "translate-x-3" : ""
+              }`}
+            />
+          </span>
+          Instrumental only
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setHistoryOpen((v) => !v)}
+          className="cursor-pointer rounded-full border border-line bg-bg-raised/50 px-4 py-2 text-sm text-ink-dim hover:text-ink hover:border-accent/50 transition-colors"
+        >
+          ♻ History
+        </button>
+      </div>
+
+      <HistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={restoreFromHistory}
+      />
 
       <div className="mt-8 flex flex-col gap-5">
         {AXES.map(({ axis, title }) => (

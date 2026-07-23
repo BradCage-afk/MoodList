@@ -35,8 +35,9 @@ export default async function Home() {
           </span>
         </h1>
         <p className="mt-4 text-center text-ink-dim max-w-xl text-base sm:text-lg">
-          Live-curated from real Spotify tracks, matched to your mood by what the
-          lyrics actually say — then exported to your account in one click.
+          Instant playlists from a pre-indexed, multilingual catalog of real
+          Spotify tracks — Bollywood to K-pop to pure instrumentals — exported
+          to your account in one click.
         </p>
 
         {signedIn ? (

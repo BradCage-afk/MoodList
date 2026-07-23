@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Moodlist — live mood-curated Spotify playlists",
+  title: "Moodlist — mood-curated Spotify playlists",
   description:
-    "Type a vibe, pick some tags, and get a live-curated playlist of real Spotify tracks — scored by lyrical emotion, exported to your account in one click.",
+    "Type a vibe, pick some tags, and instantly get a playlist from a pre-indexed multilingual catalog of real Spotify tracks — exported to your account in one click.",
 };
 
 export default function RootLayout({
