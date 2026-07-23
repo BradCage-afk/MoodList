@@ -57,7 +57,7 @@ async function llmOnce(system: string, user: string, attempt: number): Promise<u
       signal: AbortSignal.timeout(90_000),
     });
     if ((res.status === 429 || res.status >= 500) && attempt < 5) {
-      const retryAfter = Number(res.headers.get("retry-after") ?? 0) || 5 * (attempt + 1);
+      const retryAfter = Math.min(Number(res.headers.get("retry-after") ?? 0) || 5 * (attempt + 1), 120);
       await new Promise((r) => setTimeout(r, retryAfter * 1000));
       return llmOnce(system, user, attempt + 1);
     }

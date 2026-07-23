@@ -66,6 +66,13 @@ export async function spotifyGet<T>(path: string): Promise<T> {
       }
       if (res.status === 429 && attempt < 5) {
         const retryAfter = Number(res.headers.get("retry-after") ?? 2);
+        // Spotify's extended dev-mode penalty sends hour-scale values —
+        // fail fast with a clear message instead of parking for a day.
+        if (retryAfter > 900) {
+          throw new Error(
+            `Spotify rate ban: retry-after ${retryAfter}s (~${Math.round(retryAfter / 3600)}h). Resume later.`
+          );
+        }
         await new Promise((r) => setTimeout(r, (retryAfter + 1) * 1000));
         continue;
       }
