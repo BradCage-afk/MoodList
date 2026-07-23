@@ -37,7 +37,7 @@ export function TagChip({
       className={`cursor-pointer justify-self-start rounded-full border px-4 py-1.5 text-sm transition-all active:scale-95 ${
         selected
           ? `font-medium ${AXIS_ON[axis]}`
-          : `border-line/70 bg-bg-raised/40 font-normal text-ink-dim hover:text-ink ${AXIS_HOVER[axis]}`
+          : `border-line bg-bg-raised/70 font-normal text-ink/75 hover:text-ink ${AXIS_HOVER[axis]}`
       }`}
     >
       {label}
