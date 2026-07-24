@@ -13,7 +13,7 @@ export default async function Home() {
             Moodlist
           </span>
         </span>
-        {signedIn && (
+        {signedIn ? (
           <form
             action={async () => {
               "use server";
@@ -22,6 +22,17 @@ export default async function Home() {
           >
             <button className="text-sm text-ink-dim hover:text-ink transition-colors cursor-pointer">
               Sign out{session?.user?.name ? ` (${session.user.name})` : ""}
+            </button>
+          </form>
+        ) : (
+          <form
+            action={async () => {
+              "use server";
+              await signIn("spotify");
+            }}
+          >
+            <button className="cursor-pointer rounded-full border border-line px-4 py-1.5 text-sm text-ink-dim hover:border-accent/50 hover:text-ink transition-colors">
+              Connect Spotify
             </button>
           </form>
         )}
@@ -36,28 +47,11 @@ export default async function Home() {
         </h1>
         <p className="mt-4 text-center text-ink-dim max-w-xl text-base sm:text-lg">
           Instant playlists from a pre-indexed, multilingual catalog of real
-          Spotify tracks — Bollywood to K-pop to pure instrumentals — exported
-          to your account in one click.
+          Spotify tracks — Bollywood to K-pop to pure instrumentals. No login to
+          explore; connect Spotify only when you want to save one.
         </p>
 
-        {signedIn ? (
-          <MoodComposer />
-        ) : (
-          <form
-            className="mt-12"
-            action={async () => {
-              "use server";
-              await signIn("spotify");
-            }}
-          >
-            <button className="cursor-pointer rounded-full bg-gradient-to-r from-accent to-accent-2 px-8 py-3.5 font-medium text-white shadow-lg shadow-accent/25 hover:shadow-accent/40 hover:scale-[1.02] active:scale-[0.99] transition-all">
-              Connect Spotify to start
-            </button>
-            <p className="mt-3 text-center text-xs text-ink-dim">
-              Needs permission to create playlists — nothing else.
-            </p>
-          </form>
-        )}
+        <MoodComposer signedIn={signedIn} />
       </main>
     </div>
   );

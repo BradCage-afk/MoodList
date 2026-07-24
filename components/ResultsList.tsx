@@ -2,8 +2,11 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
+import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 import type { RankedTrack } from "@/lib/query";
+
+const trackUrl = (id: string) => `https://open.spotify.com/track/${id}`;
 
 type ExportState =
   | { status: "idle" }
@@ -30,6 +33,7 @@ function TagPill({ children, tone = "dim" }: { children: React.ReactNode; tone?:
 export function ResultsList({
   tracks,
   summary,
+  signedIn,
   historyId,
   fromHistory,
   onReset,
@@ -37,6 +41,8 @@ export function ResultsList({
 }: {
   tracks: RankedTrack[];
   summary: string;
+  /** Whether the visitor is connected to Spotify — gates one-click export. */
+  signedIn: boolean;
   historyId: number | null;
   /** True when restored from the history panel (affects header copy only). */
   fromHistory?: boolean;
@@ -96,7 +102,14 @@ export function ResultsList({
           >
             Start over
           </button>
-          {exportState.status === "done" ? (
+          {!signedIn ? (
+            <button
+              onClick={() => signIn("spotify")}
+              className="cursor-pointer rounded-full bg-gradient-to-r from-accent to-accent-2 px-5 py-2 text-sm font-medium text-white shadow-lg shadow-accent/25 hover:shadow-accent/40 transition-shadow"
+            >
+              Connect Spotify to save ✦
+            </button>
+          ) : exportState.status === "done" ? (
             <a
               href={exportState.url}
               target="_blank"
@@ -118,6 +131,13 @@ export function ResultsList({
           )}
         </div>
       </div>
+
+      {!signedIn && (
+        <p className="mb-4 rounded-lg border border-line/70 bg-bg-raised/50 px-4 py-2 text-xs text-ink-dim">
+          Tap any track to open it in Spotify — or connect your account to save the whole set as a
+          playlist in one click.
+        </p>
+      )}
 
       {exportState.status === "done" && historyId !== null && (
         <p className="mb-4 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2 text-xs text-ink-dim">
@@ -144,44 +164,56 @@ export function ResultsList({
             key={track.id}
             className="rounded-xl border border-line/60 bg-bg-raised/60 hover:border-accent/40 transition-colors"
           >
-            <button
-              type="button"
-              onClick={() => setOpenId(openId === track.id ? null : track.id)}
-              aria-expanded={openId === track.id}
-              className="flex w-full cursor-pointer items-center gap-4 px-4 py-2.5 text-left"
-            >
-              <span className="w-5 text-right text-xs text-ink-dim tabular-nums">{i + 1}</span>
-              {track.albumArt ? (
-                <Image
-                  src={track.albumArt}
-                  alt=""
-                  width={64}
-                  height={64}
-                  className="rounded-lg shadow-md shadow-black/30"
-                  unoptimized
-                />
-              ) : (
-                <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-accent/40 to-accent-2/40" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-[15px]">{track.name}</p>
-                <p className="truncate text-xs text-ink-dim/80">{track.artists.join(", ")}</p>
-              </div>
-              {track.tags.instrumental && (
-                <span className="shrink-0 text-[10px] uppercase tracking-wide text-ink-dim/70">
-                  inst
-                </span>
-              )}
-              <span className="shrink-0 text-[11px] tabular-nums text-ink-dim" title="Tag confidence">
-                {Math.round(track.confidence * 100)}%
-              </span>
-              <span
-                className={`shrink-0 text-xs text-ink-dim/70 transition-transform ${openId === track.id ? "rotate-180" : ""}`}
-                aria-hidden
+            <div className="flex items-center gap-3 px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => setOpenId(openId === track.id ? null : track.id)}
+                aria-expanded={openId === track.id}
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left"
               >
-                ▾
-              </span>
-            </button>
+                <span className="w-5 text-right text-xs text-ink-dim tabular-nums">{i + 1}</span>
+                {track.albumArt ? (
+                  <Image
+                    src={track.albumArt}
+                    alt=""
+                    width={64}
+                    height={64}
+                    className="rounded-lg shadow-md shadow-black/30"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-accent/40 to-accent-2/40" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-[15px]">{track.name}</p>
+                  <p className="truncate text-xs text-ink-dim/80">{track.artists.join(", ")}</p>
+                </div>
+                {track.tags.instrumental && (
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-ink-dim/70">
+                    inst
+                  </span>
+                )}
+                <span className="shrink-0 text-[11px] tabular-nums text-ink-dim" title="Tag confidence">
+                  {Math.round(track.confidence * 100)}%
+                </span>
+                <span
+                  className={`shrink-0 text-xs text-ink-dim/70 transition-transform ${openId === track.id ? "rotate-180" : ""}`}
+                  aria-hidden
+                >
+                  ▾
+                </span>
+              </button>
+              <a
+                href={trackUrl(track.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open in Spotify"
+                aria-label={`Open ${track.name} in Spotify`}
+                className="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs text-ink-dim transition-colors hover:border-accent/60 hover:text-ink"
+              >
+                ↗
+              </a>
+            </div>
             <AnimatePresence initial={false}>
               {openId === track.id && (
                 <motion.div

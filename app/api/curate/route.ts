@@ -12,6 +12,18 @@ const MIN_SIZE = 5;
 const MAX_SIZE = 50;
 const DEFAULT_SIZE = 24;
 const HISTORY_CAP = 15;
+const VISITOR_COOKIE = "ml_vid";
+const VISITOR_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+
+function readCookie(header: string | null, name: string): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return undefined;
+}
 
 function summarize(text: string, tagIds: string[]): string {
   if (text.trim()) return text.trim().slice(0, 80);
@@ -27,10 +39,10 @@ function summarize(text: string, tagIds: string[]): string {
  * live pipeline: no Spotify search, no lyrics, no LLM at request time.
  */
 export async function POST(req: Request) {
+  // Curation is a read against our own index, so it's open to everyone —
+  // no Spotify login required. A session, when present, only unlocks the
+  // per-user extras (history snapshot + activity log) below.
   const session = await auth();
-  if (!session?.accessToken || session.error) {
-    return Response.json({ error: "Not authenticated with Spotify" }, { status: 401 });
-  }
 
   let body: { text?: string; tagIds?: string[]; size?: number; instrumentalOnly?: boolean };
   try {
@@ -53,8 +65,23 @@ export async function POST(req: Request) {
     const tracks = await queryIndex(prefs, size);
     const summary = summarize(text, tagIds);
 
+    const userId = session?.spotifyId ?? null;
+
+    // Analytics actor: the real Spotify ID when signed in, otherwise a stable
+    // first-party visitor id so anonymous traffic and retention are still
+    // measurable. No personal data — just an opaque random token in a cookie.
+    let setVisitorCookie: string | null = null;
+    let actorId = userId;
+    if (!actorId) {
+      let vid = readCookie(req.headers.get("cookie"), VISITOR_COOKIE);
+      if (!vid) {
+        vid = crypto.randomUUID();
+        setVisitorCookie = vid;
+      }
+      actorId = `anon:${vid}`;
+    }
+
     let historyId: number | null = null;
-    const userId = session.spotifyId;
     if (userId && tracks.length > 0) {
       // Snapshot into history, then trim to the newest HISTORY_CAP entries.
       const ins = await db().query(
@@ -68,13 +95,26 @@ export async function POST(req: Request) {
            (SELECT id FROM history WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2)`,
         [userId, HISTORY_CAP]
       );
-      logActivity(userId, session.user?.name ?? null, "curate", {
+    }
+
+    // Log every curation (signed-in or anonymous) so /admin can show traffic
+    // and retention. Best-effort — never blocks the response.
+    if (tracks.length > 0) {
+      logActivity(actorId, session?.user?.name ?? null, "curate", {
         summary,
         tracks: tracks.length,
+        anon: !userId,
       });
     }
 
-    return Response.json({ tracks, summary, prefs, historyId });
+    const res = Response.json({ tracks, summary, prefs, historyId });
+    if (setVisitorCookie) {
+      res.headers.append(
+        "Set-Cookie",
+        `${VISITOR_COOKIE}=${setVisitorCookie}; Path=/; Max-Age=${VISITOR_MAX_AGE}; HttpOnly; SameSite=Lax`
+      );
+    }
+    return res;
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "Curation failed" },

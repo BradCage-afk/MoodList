@@ -26,5 +26,33 @@ export async function GET() {
             max(created_at) AS last_seen
      FROM activity_log GROUP BY user_id ORDER BY last_seen DESC`
   );
-  return Response.json({ activity, userStats });
+
+  // Traffic + retention headline numbers. A "visitor" is any distinct actor
+  // (a Spotify id when signed in, an anon:<cookie> id otherwise). "Returning"
+  // = seen active on more than one calendar day.
+  const { rows: statsRows } = await db().query(
+    `SELECT
+       count(*) FILTER (WHERE action = 'curate')::int  AS curations,
+       count(*) FILTER (WHERE action = 'export')::int  AS playlists,
+       count(DISTINCT user_id)::int                    AS visitors,
+       count(DISTINCT user_id) FILTER (WHERE user_id LIKE 'anon:%')::int AS anon_visitors,
+       count(*) FILTER (WHERE action = 'curate' AND created_at > now() - interval '24 hours')::int AS curations_24h,
+       count(DISTINCT user_id) FILTER (WHERE created_at > now() - interval '24 hours')::int         AS visitors_24h
+     FROM activity_log`
+  );
+  const { rows: retRows } = await db().query(
+    `SELECT count(*)::int AS returning FROM (
+       SELECT user_id FROM activity_log
+       GROUP BY user_id HAVING count(DISTINCT date_trunc('day', created_at)) > 1
+     ) s`
+  );
+  const stats = { ...statsRows[0], returning: retRows[0].returning };
+
+  // Every playlist that's been created, newest first.
+  const { rows: playlists } = await db().query(
+    `SELECT id, display_name, user_id, detail, created_at
+     FROM activity_log WHERE action = 'export' ORDER BY created_at DESC LIMIT 100`
+  );
+
+  return Response.json({ stats, activity, userStats, playlists });
 }

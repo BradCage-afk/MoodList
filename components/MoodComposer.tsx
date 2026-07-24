@@ -27,7 +27,7 @@ interface Preview {
   suggestions: string[];
 }
 
-export function MoodComposer() {
+export function MoodComposer({ signedIn }: { signedIn: boolean }) {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [size, setSize] = useState(24);
@@ -143,6 +143,7 @@ export function MoodComposer() {
         <ResultsList
           tracks={tracks}
           summary={summary}
+          signedIn={signedIn}
           historyId={historyId}
           fromHistory={fromHistory}
           onReset={reset}
@@ -317,20 +318,24 @@ export function MoodComposer() {
           Instrumental only
         </button>
 
-        <button
-          type="button"
-          onClick={() => setHistoryOpen((v) => !v)}
-          className="cursor-pointer rounded-full border border-line bg-bg-raised/50 px-4 py-2 text-sm text-ink-dim hover:text-ink hover:border-accent/50 transition-colors"
-        >
-          ♻ History
-        </button>
+        {signedIn && (
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="cursor-pointer rounded-full border border-line bg-bg-raised/50 px-4 py-2 text-sm text-ink-dim hover:text-ink hover:border-accent/50 transition-colors"
+          >
+            ♻ History
+          </button>
+        )}
       </div>
 
-      <HistoryPanel
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        onRestore={restoreFromHistory}
-      />
+      {signedIn && (
+        <HistoryPanel
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          onRestore={restoreFromHistory}
+        />
+      )}
 
       <div className="mt-8 flex flex-col gap-8">
         {AXES.map(({ axis, title }) => (

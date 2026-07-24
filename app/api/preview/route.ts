@@ -1,4 +1,3 @@
-import { auth } from "@/auth";
 import { buildPrefs } from "@/lib/query";
 import { db } from "@/lib/db";
 
@@ -43,11 +42,7 @@ const CONTEXT_TO_CHIP: Record<string, string> = {
 };
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.accessToken || session.error) {
-    return Response.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
+  // Public: the preview is a read against our own index, no login needed.
   let body: { text?: string; tagIds?: string[]; instrumentalOnly?: boolean };
   try {
     body = await req.json();
